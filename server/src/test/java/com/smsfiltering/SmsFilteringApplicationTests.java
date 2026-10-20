@@ -1,10 +1,10 @@
-package sms_filtering;
+package com.smsfiltering;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class ServerApplicationTests {
+class SmsFilteringApplicationTests {
 
 	@Test
 	void contextLoads() {

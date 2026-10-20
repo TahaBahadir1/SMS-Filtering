@@ -8,10 +8,11 @@
 		<version>4.1.1</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.sms_filtering</groupId>
+	<groupId>com.smsfiltering</groupId>
 	<artifactId>server</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>server</name>
+	<packaging>jar</packaging>
+	<name>SMS-Filtering</name>
 	<description/>
 	<url/>
 	<licenses>

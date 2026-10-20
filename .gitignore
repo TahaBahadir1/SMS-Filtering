@@ -1,0 +1,23 @@
+# Build & target
+target/
+**/target/
+build/
+**/build/
+
+# Environment
+.env
+.env.*
+
+# IDEs
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.project
+.classpath
+
+# OS files
+.DS_Store
+Thumbs.db
