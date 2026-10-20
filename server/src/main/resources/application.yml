@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: SMS-Filtering
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:sms_filtering}
+    username: ${DB_USER:sms_user}
+    password: ${DB_PASSWORD:sms_password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
