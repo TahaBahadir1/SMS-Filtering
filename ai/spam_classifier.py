@@ -139,10 +139,10 @@ def main():
         "bgn sana ozel b!nus kaçırma",
         "p  a  ra KzAN ACIL TIKLA",
         "ACİL PARA YOLLA KANKA",
-        "kremler güzel",
+        "kargom ne zaman teslim edilecek",
         "performans ödevini yaptın mı",
         "https://www.turkiye.gov.tr/",
-        "CİNSEL PERFORMANS KREM",
+        "GÜNCEL BAHİS VE BONUS KAZANCI İÇİN TIKLAYIN",
         "Tebrikler çekilişten 50.000 TL kazandınız hemen arayın"
     ]
     for msg in test_cases:
