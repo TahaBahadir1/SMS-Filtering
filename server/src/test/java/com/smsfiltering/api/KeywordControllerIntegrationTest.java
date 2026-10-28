@@ -21,25 +21,43 @@ class KeywordControllerIntegrationTest {
     private MockMvc mockMvc;
 
     @Test
-    @DisplayName("GET /api/v1/keywords - version parametresi verilmediginde (default=0) tam liste donmeli")
-    void shouldReturnFullCategoryListWhenVersionIsZero() throws Exception {
+    @DisplayName("GET /api/v1/keywords - version parametresi verilmediginde (default=0) tam kategori ve konu listesi donmeli")
+    void shouldReturnFullCategoryAndTopicListWhenVersionIsZero() throws Exception {
         mockMvc.perform(get("/api/v1/keywords")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.version").value(1))
+                .andExpect(jsonPath("$.version").value(2))
                 .andExpect(jsonPath("$.upToDate").value(false))
-                .andExpect(jsonPath("$.categories", hasSize(5)));
+                .andExpect(jsonPath("$.categories", hasSize(5)))
+                .andExpect(jsonPath("$.topics", hasSize(5)))
+                .andExpect(jsonPath("$.topics[0].id").exists())
+                .andExpect(jsonPath("$.topics[0].name").exists())
+                .andExpect(jsonPath("$.topics[0].keywords").isArray());
     }
 
     @Test
-    @DisplayName("GET /api/v1/keywords?version=1 - version guncel oldugunda upToDate=true ve bos liste donmeli")
+    @DisplayName("GET /api/v1/keywords?version=2 - version guncel oldugunda upToDate=true, bos kategori ve bos konu listesi donmeli")
     void shouldReturnEmptyListWhenVersionIsUpToDate() throws Exception {
+        mockMvc.perform(get("/api/v1/keywords")
+                        .param("version", "2")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(2))
+                .andExpect(jsonPath("$.upToDate").value(true))
+                .andExpect(jsonPath("$.categories", hasSize(0)))
+                .andExpect(jsonPath("$.topics", hasSize(0)));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/keywords?version=1 - eski surum gonderildiginde upToDate=false ve guncel liste donmeli")
+    void shouldReturnFullListWhenOldVersionProvided() throws Exception {
         mockMvc.perform(get("/api/v1/keywords")
                         .param("version", "1")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.version").value(1))
-                .andExpect(jsonPath("$.upToDate").value(true))
-                .andExpect(jsonPath("$.categories", hasSize(0)));
+                .andExpect(jsonPath("$.version").value(2))
+                .andExpect(jsonPath("$.upToDate").value(false))
+                .andExpect(jsonPath("$.categories", hasSize(5)))
+                .andExpect(jsonPath("$.topics", hasSize(5)));
     }
 }

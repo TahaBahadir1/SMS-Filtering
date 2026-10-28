@@ -29,11 +29,11 @@ Bu doküman, SMS-Filtering projesinin `server/` modülünde yer alan REST API u�
 ### Başarılı Cevaplar (HTTP 200 OK)
 
 #### Senaryo A: İstemci sürümü eski veya ilk kez çekiliyor (`version != server_version`)
-Sunucudaki güncel sürüm numarası, `upToDate: false` ve tüm kategoriler ile anahtar kelimeler tam liste olarak döner.
+Sunucudaki güncel sürüm numarası, `upToDate: false`, tüm kategoriler ve tüm konular (topics) anahtar kelimeleriyle tam liste olarak döner.
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "upToDate": false,
   "categories": [
     {
@@ -116,18 +116,91 @@ Sunucudaki güncel sürüm numarası, `upToDate: false` ve tüm kategoriler ile 
         "askıya alınacaktır"
       ]
     }
+  ],
+  "topics": [
+    {
+      "id": 1,
+      "name": "BANKA",
+      "keywords": [
+        "kredi kartı",
+        "hesap ekstresi",
+        "kredi başvurusu",
+        "vadeli mevduat",
+        "şube",
+        "bankamatik",
+        "kart aidatı",
+        "kredi borcu"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "KUMAR",
+      "keywords": [
+        "canlı bahis",
+        "slot oyunu",
+        "deneme bonusu",
+        "çevrimsiz bonus",
+        "casino",
+        "kayıp bonusu",
+        "güvenilir bahis",
+        "bahis oranları"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "BELEDIYE",
+      "keywords": [
+        "belediye başkanlığı",
+        "su kesintisi",
+        "çevre temizlik vergisi",
+        "fen işleri",
+        "emlak vergisi",
+        "muhtarlık",
+        "belediye duyurusu",
+        "askıda fatura"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "KARGO",
+      "keywords": [
+        "kargo takip",
+        "teslimat şubesi",
+        "gönderiniz yola çıktı",
+        "dağıtıma çıkarıldı",
+        "kurye",
+        "kargo takip no",
+        "adreste bulunamadı",
+        "teslim kodu"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "OPERATOR",
+      "keywords": [
+        "fatura dönemi",
+        "kalan internet paketi",
+        "taahhüt yenileme",
+        "tarife değişikliği",
+        "faturalı hat",
+        "tl yükleme",
+        "data paketi",
+        "paket aşımı"
+      ]
+    }
   ]
 }
 ```
 
 #### Senaryo B: İstemci sürümü güncel (`version == server_version`)
-`upToDate: true` ve boş `categories` listesi döner.
+`upToDate: true`, boş `categories` ve boş `topics` listesi döner.
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "upToDate": true,
-  "categories": []
+  "categories": [],
+  "topics": []
 }
 ```
 
@@ -136,6 +209,8 @@ Sunucudaki güncel sürüm numarası, `upToDate: false` ve tüm kategoriler ile 
 ## 2. Gönderen (Sender) Sorgulama
 
 SMS başlığı veya numara olarak gelen gönderenin risk analizini sorgular. Arama tam eşleşme ile yapılır ve **büyük/küçük harf duyarsızdır** (`case-insensitive`).
+
+> **Not:** Tehlikeli gönderen = riskLevel riskli VE isFinalized true.
 
 - **Uç Nokta:** `POST /api/v1/senders/lookup`
 - **İstek Başlıkları:** `Content-Type: application/json`

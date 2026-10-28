@@ -2,6 +2,7 @@ package com.smsfiltering.api;
 
 import com.smsfiltering.api.dto.KeywordCategoryResponse;
 import com.smsfiltering.api.dto.KeywordListResponse;
+import com.smsfiltering.api.dto.TopicResponse;
 import com.smsfiltering.content.application.port.GetKeywordsUseCase;
 import com.smsfiltering.content.domain.KeywordListResult;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,6 +28,9 @@ public class KeywordController {
                 result.upToDate(),
                 result.categories().stream()
                         .map(cat -> new KeywordCategoryResponse(cat.id(), cat.name(), cat.keywords()))
+                        .toList(),
+                result.topics().stream()
+                        .map(topic -> new TopicResponse(topic.id(), topic.name(), topic.keywords()))
                         .toList()
         );
     }

@@ -22,8 +22,13 @@ public class KeywordQueryService implements GetKeywordsUseCase {
     public KeywordListResult getKeywords(int clientVersion) {
         int latestVersion = keywordRepositoryPort.getLatestVersion();
         if (clientVersion == latestVersion) {
-            return new KeywordListResult(latestVersion, true, Collections.emptyList());
+            return new KeywordListResult(latestVersion, true, Collections.emptyList(), Collections.emptyList());
         }
-        return new KeywordListResult(latestVersion, false, keywordRepositoryPort.getAllCategoriesWithKeywords());
+        return new KeywordListResult(
+                latestVersion,
+                false,
+                keywordRepositoryPort.getAllCategoriesWithKeywords(),
+                keywordRepositoryPort.getAllTopicsWithKeywords()
+        );
     }
 }

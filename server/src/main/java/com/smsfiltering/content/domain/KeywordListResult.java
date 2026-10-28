@@ -5,6 +5,7 @@ import java.util.List;
 public record KeywordListResult(
         int version,
         boolean upToDate,
-        List<KeywordCategory> categories
+        List<KeywordCategory> categories,
+        List<Topic> topics
 ) {
 }
