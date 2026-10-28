@@ -42,13 +42,20 @@ class SenderAndKeywordRepositoryTest {
     fun testGetKeywords_VersionZero_ReturnsFullList() = runBlocking {
         val json = """
         {
-          "version": 1,
+          "version": 2,
           "upToDate": false,
           "categories": [
             {
               "id": 1,
               "name": "IBAN",
               "keywords": ["iban", "hesap numarası"]
+            }
+          ],
+          "topics": [
+            {
+              "id": 1,
+              "name": "BANKA",
+              "keywords": ["kredi kartı"]
             }
           ]
         }
@@ -65,10 +72,12 @@ class SenderAndKeywordRepositoryTest {
 
         assertTrue(result is NetworkResult.Success)
         val data = (result as NetworkResult.Success).data
-        assertEquals(1L, data.version)
+        assertEquals(2L, data.version)
         assertFalse(data.upToDate)
         assertEquals(1, data.categories.size)
         assertEquals("IBAN", data.categories[0].name)
+        assertEquals(1, data.topics.size)
+        assertEquals("BANKA", data.topics[0].name)
 
         val recordedRequest = mockWebServer.takeRequest()
         assertEquals("GET", recordedRequest.method)

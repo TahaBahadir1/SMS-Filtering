@@ -19,7 +19,7 @@ class SmsFilteringApiDtoTest {
     fun testKeywordsScenarioA_FullListDeserialization() {
         val json = """
         {
-          "version": 1,
+          "version": 2,
           "upToDate": false,
           "categories": [
             {
@@ -39,38 +39,71 @@ class SmsFilteringApiDtoTest {
                 "kart şifresi"
               ]
             }
+          ],
+          "topics": [
+            {
+              "id": 1,
+              "name": "BANKA",
+              "keywords": [
+                "kredi kartı",
+                "hesap ekstresi"
+              ]
+            },
+            {
+              "id": 2,
+              "name": "KUMAR",
+              "keywords": [
+                "canlı bahis",
+                "slot oyunu"
+              ]
+            }
           ]
         }
         """.trimIndent()
 
         val response = gson.fromJson(json, KeywordListResponseDto::class.java)
 
-        assertEquals(1L, response.version)
+        assertEquals(2L, response.version)
         assertFalse(response.upToDate)
         assertEquals(2, response.categories.size)
+        assertEquals(2, response.topics.size)
 
         val ibanCat = response.categories[0]
         assertEquals(1L, ibanCat.id)
         assertEquals("IBAN", ibanCat.name)
         assertEquals(3, ibanCat.keywords.size)
         assertTrue(ibanCat.keywords.contains("hesap numarası"))
+
+        val bankaTopic = response.topics[0]
+        assertEquals(1L, bankaTopic.id)
+        assertEquals("BANKA", bankaTopic.name)
+        assertEquals(2, bankaTopic.keywords.size)
+        assertTrue(bankaTopic.keywords.contains("kredi kartı"))
+
+        val kumarTopic = response.topics[1]
+        assertEquals(2L, kumarTopic.id)
+        assertEquals("KUMAR", kumarTopic.name)
+        assertEquals(2, kumarTopic.keywords.size)
+        assertTrue(kumarTopic.keywords.contains("canlı bahis"))
     }
 
     @Test
     fun testKeywordsScenarioB_UpToDateDeserialization() {
         val json = """
         {
-          "version": 1,
+          "version": 2,
           "upToDate": true,
-          "categories": []
+          "categories": [],
+          "topics": []
         }
         """.trimIndent()
 
         val response = gson.fromJson(json, KeywordListResponseDto::class.java)
 
-        assertEquals(1L, response.version)
+        assertEquals(2L, response.version)
         assertTrue(response.upToDate)
         assertTrue(response.categories.isEmpty())
+        assertTrue(response.topics.isEmpty())
     }
 
     @Test

@@ -15,13 +15,30 @@ data class KeywordListResponseDto(
     val upToDate: Boolean,
 
     @SerializedName("categories")
-    val categories: List<KeywordCategoryDto> = emptyList()
+    val categories: List<KeywordCategoryDto> = emptyList(),
+
+    @SerializedName("topics")
+    val topics: List<TopicDto> = emptyList()
 )
 
 /**
  * Kategori ve ilişkili anahtar kelimeler DTO'su.
  */
 data class KeywordCategoryDto(
+    @SerializedName("id")
+    val id: Long,
+
+    @SerializedName("name")
+    val name: String,
+
+    @SerializedName("keywords")
+    val keywords: List<String> = emptyList()
+)
+
+/**
+ * Konu (Topic) ve ilişkili anahtar kelimeler DTO'su.
+ */
+data class TopicDto(
     @SerializedName("id")
     val id: Long,
 
