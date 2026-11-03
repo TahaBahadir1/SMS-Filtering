@@ -4,10 +4,14 @@ target/
 build/
 **/build/
 
-# Environment
+# Environment & Local Config
 .env
 .env.*
 !.env.example
+local.properties
+**/local.properties
+!local.properties.example
+!**/local.properties.example
 
 # IDEs
 .idea/

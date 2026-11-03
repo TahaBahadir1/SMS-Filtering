@@ -2,6 +2,7 @@ package com.smsfiltering.client.data.remote
 
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import com.smsfiltering.client.BuildConfig
 import com.smsfiltering.client.data.remote.api.SmsFilteringApiService
 import com.smsfiltering.client.data.remote.dto.ErrorResponseDto
 import okhttp3.OkHttpClient
@@ -14,16 +15,17 @@ import java.util.concurrent.TimeUnit
 /**
  * Android istemcisi için Retrofit ve OkHttp yapılandırması.
  *
- * Base URL: http://10.0.2.2:8080/api/v1/
+ * Base URL: local.properties dosyasındaki SERVER_BASE_URL üzerinden BuildConfig ile sağlanır.
  *
  * Not: docs/api-sozlesmesi.md Gizlilik Politikası uyarınca:
  * "istek gövdesi (request body), gönderen değeri (sender) ve istemci IP adresi
  * uygulama ve erişim loglarında kesinlikle loglanmaz."
- * Bu nedenle HttpLoggingInterceptor seviyesi BODY yerine BASIC olarak tutulmuştur.
+ * Bu nedenle HttpLoggingInterceptor seviyesi DEBUG derlemelerinde BASIC olarak tutulmuştur
+ * (asla BODY kullanılmaz), RELEASE derlemelerinde ise HTTP gövde/içerik loglaması tamamen kapalıdır (NONE).
  */
 object ApiClient {
 
-    const val DEFAULT_BASE_URL = "http://10.0.2.2:8080/api/v1/"
+    val DEFAULT_BASE_URL: String get() = BuildConfig.SERVER_BASE_URL
     private const val TIMEOUT_SECONDS = 15L
 
     val gson: Gson by lazy {
@@ -32,10 +34,21 @@ object ApiClient {
     }
 
     fun createOkHttpClient(
-        logLevel: HttpLoggingInterceptor.Level = HttpLoggingInterceptor.Level.BASIC
+        logLevel: HttpLoggingInterceptor.Level = if (BuildConfig.DEBUG) {
+            HttpLoggingInterceptor.Level.BASIC
+        } else {
+            HttpLoggingInterceptor.Level.NONE
+        }
     ): OkHttpClient {
+        // Gizlilik kuralı: Release derlemesinde gövde loglaması asla açık olamaz
+        val effectiveLogLevel = if (!BuildConfig.DEBUG && logLevel == HttpLoggingInterceptor.Level.BODY) {
+            HttpLoggingInterceptor.Level.NONE
+        } else {
+            logLevel
+        }
+
         val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = logLevel
+            level = effectiveLogLevel
         }
 
         return OkHttpClient.Builder()

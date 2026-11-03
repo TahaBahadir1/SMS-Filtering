@@ -1,7 +1,26 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.ksp)
+}
+
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties").takeIf { it.exists() }
+    ?: rootProject.file("../local.properties").takeIf { it.exists() }
+
+if (localPropertiesFile != null) {
+    localPropertiesFile.inputStream().use { localProperties.load(it) }
+}
+
+val rawServerBaseUrl: String = localProperties.getProperty("SERVER_BASE_URL")
+    ?: "https://ornek.trycloudflare.com/api/v1/"
+
+val serverBaseUrl: String = if (rawServerBaseUrl.endsWith("/")) {
+    rawServerBaseUrl
+} else {
+    "$rawServerBaseUrl/"
 }
 
 android {
@@ -16,6 +35,12 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "SERVER_BASE_URL", "\"$serverBaseUrl\"")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {
@@ -34,7 +59,9 @@ android {
 }
 
 kotlin {
-    jvmToolchain(17)
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
 }
 
 tasks.withType<Test> {

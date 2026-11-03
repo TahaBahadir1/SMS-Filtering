@@ -1,0 +1,10 @@
+## This file is a template for local.properties.
+## Copy this file to local.properties and update the values for your machine.
+## DO NOT commit real secrets or URLs to version control.
+
+# Location of the Android SDK (optional if ANDROID_HOME is set in your environment):
+# sdk.dir=C\:\\Users\\your-username\\AppData\\Local\\Android\\Sdk
+
+# Server Base URL (must end with /api/v1/):
+SERVER_BASE_URL=https://ornek.trycloudflare.com/api/v1/
+
