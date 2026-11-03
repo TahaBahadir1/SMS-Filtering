@@ -23,7 +23,7 @@ interface TopicDao {
     @Query("SELECT * FROM topic_keywords ORDER BY id ASC")
     suspend fun getAllTopicKeywords(): List<TopicKeywordEntity>
 
-    @Query("SELECT * FROM topic_keywords WHERE topicId = :topicId")
+    @Query("SELECT * FROM topic_keywords WHERE topic_id = :topicId")
     suspend fun getKeywordsByTopicId(topicId: Long): List<TopicKeywordEntity>
 
     @Query("DELETE FROM topic_keywords")

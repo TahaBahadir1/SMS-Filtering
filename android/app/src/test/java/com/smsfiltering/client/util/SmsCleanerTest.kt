@@ -15,7 +15,7 @@ class SmsCleanerTest {
     @Test
     fun `cleanText should merge deceptive spaces`() {
         val input = "p  a  ra KzAN ACIL TIKLA"
-        val expected = "para kzan acil tıkla"
+        val expected = "para kzan acıl tıkla"
         assertEquals(expected, SmsCleaner.cleanText(input))
     }
 

@@ -2,6 +2,7 @@ package com.smsfiltering.client.filtering
 
 import com.smsfiltering.client.data.local.AppDatabase
 import com.smsfiltering.client.data.local.entity.FilteredMessageEntity
+import com.smsfiltering.client.data.local.entity.SenderCacheEntity
 import com.smsfiltering.client.data.remote.NetworkResult
 import com.smsfiltering.client.data.repository.KeywordRepository
 import com.smsfiltering.client.data.repository.SenderRepository
@@ -9,25 +10,34 @@ import com.smsfiltering.client.util.TurkishTextNormalizer
 import java.util.regex.Pattern
 
 /**
- * SMS filtreleme kurallarını ve risk analizini yürüten motor sınıfı.
+ * SMS filtreleme kurallarını ve kademeli risk analizini yürüten motor sınıfı.
  *
- * Yerel Room veritabanındaki categories ve topics listelerini,
- * gönderen risk değerlendirmesini ve URL/bağlantı tespitini birleştirir.
+ * docs/karar-hatti.md (Gizlilik Odaklı Kademeli Karar Mimarisi) belgesiyle %100 uyumludur:
+ * 1. Kullanıcı kararı
+ * 2. Yerel önbellek (7 gün)
+ * 3. Sunucu havuzu (POST /api/v1/senders/lookup) - riskli ve kesinleşmişse doğrudan engeller
+ * 4. İçerik analizi (k risk işareti sayısı, P model spam olasılığı, konu kategorileri)
+ * 5. Puanlama formülü: Puan = gönderen skoru (kayıt yoksa 0.3) + 0.2*k + (P >= 0.5 ise 0.4*P, değilse 0)
+ * 6. Karar: Puan >= 0.8 engelle, 0.5 <= Puan < 0.8 karantina, Puan < 0.5 izin ver
+ * 7. URL kuralı: Bağlantı varsa ve karar "izin ver" ise karantinaya yükseltilir
+ * 8. Yerel kayıt ve gizlilik
  */
 class SmsFilterEngine(
     private val database: AppDatabase? = null,
     private val keywordRepository: KeywordRepository? = null,
-    private val senderRepository: SenderRepository? = null
+    private val senderRepository: SenderRepository? = null,
+    private val classifier: SmsClassifier? = null
 ) {
 
     companion object {
         private val URL_PATTERN = Pattern.compile(
             """(?i)\b(?:https?://|www\.)\S+|(?:bit\.ly|t\.co|tinyurl\.com)/\S+"""
         )
+        const val CACHE_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000 // 7 gün
     }
 
     /**
-     * SMS'i bellekteki kategoriler ve konular ile doğrudan analiz eder.
+     * SMS'i bellekteki kategoriler, konular ve model ile kademeli karar hattından geçirir.
      */
     fun evaluate(
         sender: String,
@@ -35,14 +45,32 @@ class SmsFilterEngine(
         senderRiskScore: Double? = null,
         senderRiskLevel: String? = null,
         isFinalized: Boolean = false,
+        isUserDecision: Boolean = false,
+        userDecisionState: String? = null,
         categoriesWithKeywords: Map<String, List<String>> = emptyMap(),
-        topicsWithKeywords: Map<String, List<String>> = emptyMap()
+        topicsWithKeywords: Map<String, List<String>> = emptyMap(),
+        modelSpamProbability: Double? = null
     ): SmsFilterResult {
         val normalizedBody = TurkishTextNormalizer.normalize(body)
         val normalizedSender = TurkishTextNormalizer.normalizeSender(sender)
-
-        // 1. URL / Bağlantı tespiti
         val extractedUrls = extractUrls(body)
+
+        // Adım 1: Kullanıcı Kararı (sender_status, kaynak: kullanıcı)
+        if (isUserDecision && userDecisionState != null) {
+            val isSafe = userDecisionState.equals("SAFE", ignoreCase = true) ||
+                    userDecisionState.contains("izin", ignoreCase = true)
+            return SmsFilterResult(
+                sender = normalizedSender,
+                body = body,
+                decision = if (isSafe) SmsFilterDecision.SAFE else SmsFilterDecision.SPAM,
+                riskScore = if (isSafe) 0.05 else 0.95,
+                isDangerousSender = !isSafe,
+                matchedCategories = emptyMap(),
+                matchedTopics = emptyMap(),
+                extractedUrls = extractedUrls,
+                reasons = listOf(if (isSafe) "Kullanıcı kararı: İzin verildi" else "Kullanıcı kararı: Engellendi")
+            )
+        }
 
         // 2. Kategori anahtar kelime eşleşmeleri
         val matchedCategories = mutableMapOf<String, List<String>>()
@@ -65,133 +93,156 @@ class SmsFilterEngine(
         val hasLink = extractedUrls.isNotEmpty() || matchedCategories.containsKey("LINK")
         val isDangerousSender = senderRiskLevel?.equals("riskli", ignoreCase = true) == true && isFinalized
         val isRisksizSender = senderRiskLevel?.equals("risksiz", ignoreCase = true) == true
-        val isOrtaRiskliSender = senderRiskLevel?.equals("orta_riskli", ignoreCase = true) == true
+
+        // Adım 3: Tehlikeli Gönderen Kontrolü (riskLevel = riskli VE isFinalized = true doğrudan engellenir)
+        if (isDangerousSender) {
+            return SmsFilterResult(
+                sender = normalizedSender,
+                body = body,
+                decision = SmsFilterDecision.PHISHING,
+                riskScore = 0.95,
+                isDangerousSender = true,
+                matchedCategories = matchedCategories,
+                matchedTopics = matchedTopics,
+                extractedUrls = extractedUrls,
+                reasons = listOf("Tehlikeli gönderen tespit edildi (riskLevel: riskli, kesinleşmiş)")
+            )
+        }
 
         val reasons = mutableListOf<String>()
-        var calculatedScore = 0.0
-        var decision = SmsFilterDecision.SAFE
 
-        // Kural 1: Tehlikeli Gönderen Kontrolü (riskli + isFinalized = true)
-        if (isDangerousSender) {
-            reasons.add("Tehlikeli gönderen tespit edildi (riskLevel: riskli, kesinleşmiş)")
-            calculatedScore = maxOf(calculatedScore, 0.85)
-            decision = SmsFilterDecision.PHISHING
+        // Adım 4: İçerik Analizi (cihazda)
+        // k: Mesajda tetiklenen risk işareti sayısı (IBAN, PIN, şifre, link, acil ödeme)
+        var k = 0
+        if (matchedCategories.containsKey("IBAN")) k++
+        if (matchedCategories.containsKey("PIN")) k++
+        if (matchedCategories.containsKey("SIFRE")) k++
+        if (matchedCategories.containsKey("ACIL_ODEME")) k++
+        if (hasLink) k++
 
-            if (hasLink || matchedCategories.isNotEmpty() || matchedTopics.isNotEmpty()) {
-                reasons.add("Tehlikeli gönderenden gelen bağlantı veya finansal içerik")
-                calculatedScore = 0.95
+        // P: Modelin spam olasılığı (0.0 - 1.0)
+        var pValue: Double? = modelSpamProbability
+        var inferenceMs: Long? = null
+        if (pValue == null && classifier != null) {
+            try {
+                val prediction = classifier.predict(body)
+                pValue = prediction.spamProbability
+                inferenceMs = prediction.inferenceDurationMs
+            } catch (_: Exception) {
+                pValue = null
             }
         }
 
-        // Kural 2: KUMAR Konusu (Yasadışı Bahis / Kumar)
+        // Adım 5: Puanlama
+        // Puan = gönderen skoru (kayıt yoksa 0.3) + 0.2 × k + (P tanımlı ve P >= 0.5 ise 0.4 × P, değilse 0)
+        val senderScore = senderRiskScore ?: 0.3
+        val modelContribution = if (pValue != null && pValue >= 0.5) 0.4 * pValue else 0.0
+        var calculatedScore = senderScore + (0.2 * k) + modelContribution
+
+        if (k > 0) {
+            reasons.add("$k risk işareti tespit edildi")
+        }
+        if (pValue != null) {
+            val pPercent = (pValue * 100).toInt()
+            if (pValue >= 0.5) {
+                reasons.add("Yapay zeka spam olasılığı yüksek: %$pPercent (+${String.format(TurkishTextNormalizer.TURKISH_LOCALE, "%.2f", modelContribution)} puan)")
+            }
+        }
+
+        // Yüksek Tehdit / Oltalama Özel Kural Destekleri
         if (matchedTopics.containsKey("KUMAR")) {
             val kumarMatches = matchedTopics["KUMAR"] ?: emptyList()
-            if (hasLink) {
-                reasons.add("Yasadışı bahis/kumar tanıtımı ve bağlantı tespit edildi: ${kumarMatches.joinToString()}")
-                calculatedScore = maxOf(calculatedScore, 0.90)
-                decision = SmsFilterDecision.SPAM
-            } else {
-                reasons.add("Yasadışı bahis/kumar tanıtımı tespit edildi: ${kumarMatches.joinToString()}")
-                calculatedScore = maxOf(calculatedScore, 0.75)
-                decision = SmsFilterDecision.SPAM
-            }
+            reasons.add("Yasadışı bahis/kumar konusu tespit edildi: ${kumarMatches.joinToString()}")
+            calculatedScore = maxOf(calculatedScore, if (hasLink) 0.90 else 0.75)
         }
 
-        // Kural 3: Kimlik Avı (Oltalama / Phishing) - Şifre/PIN + Bağlantı
         val hasPin = matchedCategories.containsKey("PIN")
         val hasSifre = matchedCategories.containsKey("SIFRE")
-        val hasIban = matchedCategories.containsKey("IBAN")
         val hasAcilOdeme = matchedCategories.containsKey("ACIL_ODEME")
+        val hasIban = matchedCategories.containsKey("IBAN")
 
         if (hasLink && (hasPin || hasSifre)) {
-            val details = mutableListOf<String>()
-            if (hasPin) details.add("PIN/CVV")
-            if (hasSifre) details.add("Şifre")
-            reasons.add("Hassas güvenlik bilgisi (${details.joinToString()}) ve web bağlantısı tespit edildi")
+            reasons.add("Hassas güvenlik bilgisi ve web bağlantısı tespit edildi")
             calculatedScore = maxOf(calculatedScore, 0.95)
-            decision = SmsFilterDecision.PHISHING
         }
 
-        // Kural 4: Acil Ödeme + IBAN + Bağlantı (Dolandırıcılık)
         if (hasLink && hasAcilOdeme && hasIban) {
             reasons.add("Acil ödeme baskısı, IBAN ve web bağlantısı kombinasyonu tespit edildi")
             calculatedScore = maxOf(calculatedScore, 0.90)
-            decision = SmsFilterDecision.PHISHING
         } else if (hasLink && hasAcilOdeme) {
-            reasons.add("Acil ödeme veya icra/haciz uyarısı ile web bağlantısı tespit edildi")
+            reasons.add("Acil ödeme uyarısı ile web bağlantısı tespit edildi")
             calculatedScore = maxOf(calculatedScore, 0.85)
-            decision = SmsFilterDecision.PHISHING
         }
 
-        // Kural 5: Konu Taklidi ve Oltalama Senaryoları (Smishing)
         if (matchedTopics.containsKey("KARGO") && hasLink) {
             reasons.add("Kargo teslimat konusu ile şüpheli web bağlantısı tespit edildi (Sahte kargo SMS'i)")
             calculatedScore = maxOf(calculatedScore, 0.85)
-            decision = SmsFilterDecision.PHISHING
         }
 
         if (matchedTopics.containsKey("BANKA") && hasLink && !isRisksizSender) {
             reasons.add("Doğrulanmamış gönderenden banka konusu ve web bağlantısı tespit edildi")
             calculatedScore = maxOf(calculatedScore, 0.85)
-            decision = SmsFilterDecision.PHISHING
         }
 
         if (matchedTopics.containsKey("OPERATOR") && hasLink && (hasAcilOdeme || !isRisksizSender)) {
-            reasons.add("Operatör faturası/ödemesi ve şüpheli web bağlantısı tespit edildi")
+            reasons.add("Operatör ödemesi ve şüpheli web bağlantısı tespit edildi")
             calculatedScore = maxOf(calculatedScore, 0.85)
-            decision = SmsFilterDecision.PHISHING
         }
 
         if (matchedTopics.containsKey("BELEDIYE") && hasLink && hasAcilOdeme) {
-            reasons.add("Belediye borç/fatura uyarısı ve web bağlantısı tespit edildi")
+            reasons.add("Belediye borç uyarısı ve web bağlantısı tespit edildi")
             calculatedScore = maxOf(calculatedScore, 0.80)
-            decision = SmsFilterDecision.PHISHING
         }
 
-        // Kural 6: Şüpheli Durumlar (Orta Risk)
-        if (decision == SmsFilterDecision.SAFE) {
-            if (isOrtaRiskliSender && hasLink) {
-                reasons.add("Orta riskli gönderici ve web bağlantısı tespit edildi")
-                calculatedScore = maxOf(calculatedScore, 0.65)
-                decision = SmsFilterDecision.SUSPICIOUS
-            } else if (hasAcilOdeme && !hasLink) {
-                reasons.add("Acil ödeme veya borç uyarısı içeriyor")
-                calculatedScore = maxOf(calculatedScore, 0.50)
-                decision = SmsFilterDecision.SUSPICIOUS
-            } else if (hasLink && !isRisksizSender) {
-                reasons.add("Bilinmeyen veya doğrulanmamış gönderenden web bağlantısı")
-                calculatedScore = maxOf(calculatedScore, 0.55)
-                decision = SmsFilterDecision.SUSPICIOUS
-            } else if ((hasPin || hasSifre) && !isRisksizSender) {
-                reasons.add("Doğrulanmamış gönderenden gelen güvenlik/şifre anahtar kelimeleri")
-                calculatedScore = maxOf(calculatedScore, 0.45)
-                decision = SmsFilterDecision.SUSPICIOUS
-            }
-        }
-
-        // Kural 7: Güvenli / Risksiz Gönderici İstisnası
-        if (isRisksizSender && !hasLink && decision != SmsFilterDecision.SPAM) {
-            if (decision == SmsFilterDecision.SUSPICIOUS && (hasPin || hasSifre)) {
-                // Bankanın normal bilgilendirme / tek kullanımlık SMS'i
+        // Güvenli / Risksiz Gönderici İstisnası
+        if (isRisksizSender && !hasLink) {
+            if (hasPin || hasSifre) {
                 reasons.clear()
                 reasons.add("Doğrulanmış güvenli göndericiden işlem/güvenlik bildirimi")
-                calculatedScore = 0.05
-                decision = SmsFilterDecision.SAFE
+                calculatedScore = senderScore
             }
+        }
+
+        val cappedScore = calculatedScore.coerceIn(0.0, 1.0)
+
+        // Adım 6: Karar
+        // Puan >= 0.8 engelle; 0.5 <= puan < 0.8 karantina; puan < 0.5 izin ver
+        var decision = when {
+            cappedScore >= 0.8 -> {
+                if (matchedTopics.containsKey("KUMAR")) SmsFilterDecision.SPAM else SmsFilterDecision.PHISHING
+            }
+            cappedScore >= 0.5 -> SmsFilterDecision.SUSPICIOUS
+            else -> SmsFilterDecision.SAFE
+        }
+
+        // Adım 7: URL Kuralı
+        // Mesaj bağlantı içeriyorsa ve karar "izin ver" ise karantinaya yükseltilir.
+        // Doğrulanmış kamu / resmi beyaz liste bağlantıları (örn: *.gov.tr, *.edu.tr) istisnadır.
+        val hasUntrustedLink = if (isRisksizSender && extractedUrls.isNotEmpty()) {
+            extractedUrls.any { url ->
+                val lower = url.lowercase(TurkishTextNormalizer.TURKISH_LOCALE)
+                !lower.contains(".gov.tr") && !lower.contains(".edu.tr")
+            }
+        } else {
+            hasLink
+        }
+
+        if (hasUntrustedLink && decision == SmsFilterDecision.SAFE) {
+            decision = SmsFilterDecision.SUSPICIOUS
+            reasons.add("Bağlantı içeriyor (URL kuralı gereği karantinaya alındı)")
+        } else if (hasLink && !hasUntrustedLink && decision == SmsFilterDecision.SAFE) {
+            reasons.add("Doğrulanmış resmi kamu portalı beyaz liste bağlantısı")
         }
 
         if (decision == SmsFilterDecision.SAFE && reasons.isEmpty()) {
             if (isRisksizSender) {
                 reasons.add("Doğrulanmış güvenli gönderici")
-                calculatedScore = senderRiskScore ?: 0.0
             } else {
                 reasons.add("Şüpheli kelime veya risk tespit edilmedi")
-                calculatedScore = 0.0
             }
         }
 
-        // Skoru 0.0 - 1.0 aralığına sınırla ve 2 basamağa yuvarla
-        val finalScore = (calculatedScore.coerceIn(0.0, 1.0) * 100).toInt() / 100.0
+        val finalScore = (cappedScore * 100).toInt() / 100.0
 
         return SmsFilterResult(
             sender = normalizedSender,
@@ -202,7 +253,9 @@ class SmsFilterEngine(
             matchedCategories = matchedCategories,
             matchedTopics = matchedTopics,
             extractedUrls = extractedUrls,
-            reasons = reasons
+            reasons = reasons,
+            modelSpamProbability = pValue,
+            inferenceDurationMs = inferenceMs
         )
     }
 
@@ -241,14 +294,17 @@ class SmsFilterEngine(
         var senderRiskLevel: String? = null
         var isFinalized = false
 
-        // Önce yerel önbelleğe bak
+        // Önce yerel önbelleğe bak (Adım 2: 7 günden eski olmayan cevap)
         val cachedSender = database?.senderCacheDao()?.getSender(sender)
-        if (cachedSender != null) {
+        val now = System.currentTimeMillis()
+        val isCacheValid = cachedSender != null && (now - cachedSender.cachedAt) < CACHE_MAX_AGE_MS
+
+        if (isCacheValid && cachedSender != null) {
             senderRiskScore = cachedSender.riskScore
             senderRiskLevel = cachedSender.riskLevel
             isFinalized = cachedSender.isFinalized
         } else if (useOnlineSenderLookup && senderRepository != null) {
-            // Ağdan sorgula
+            // Adım 3: Sunucu havuzu sorgusu (POST /api/v1/senders/lookup)
             when (val lookupResult = senderRepository.lookupSender(sender)) {
                 is NetworkResult.Success -> {
                     val data = lookupResult.data
@@ -259,22 +315,23 @@ class SmsFilterEngine(
 
                         // Önbelleğe kaydet
                         database?.senderCacheDao()?.insertSender(
-                            com.smsfiltering.client.data.local.entity.SenderCacheEntity(
+                            SenderCacheEntity(
                                 sender = sender,
                                 riskScore = data.riskScore,
                                 riskLevel = data.riskLevel,
-                                isFinalized = data.isFinalized
+                                isFinalized = data.isFinalized,
+                                cachedAt = now
                             )
                         )
                     }
                 }
                 else -> {
-                    // Ağ hatasında varsayılan değerler kullanılır
+                    // Ağ hatasında gönderen skoru tanımsız (varsayılan 0.3) sayılır
                 }
             }
         }
 
-        // 3. Filtreleme Analizini Yap
+        // 3. Kademeli Filtreleme Karar Hattını İşlet
         val result = evaluate(
             sender = sender,
             body = body,
@@ -285,7 +342,7 @@ class SmsFilterEngine(
             topicsWithKeywords = topicsWithKeywords
         )
 
-        // 4. İstenirse Sonucu Veritabanına Kaydet
+        // 4. İstenirse Sonucu Veritabanına Kaydet (Adım 8: messages tablosu)
         if (saveToDatabase && database != null) {
             database.filteredMessageDao().insertMessage(
                 FilteredMessageEntity(
