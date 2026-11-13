@@ -42,7 +42,29 @@ class SenderRepository(
                     code = 400,
                     message = validation.errorMessage
                 )
-            }
+            
+    /**
+     * Returns all cached senders from the local Room database.
+     */
+    suspend fun getAllSenders(): List<SenderCacheEntity> {
+        return database?.senderCacheDao()?.getAllSenders() ?: emptyList()
+    }
+
+    /**
+     * Inserts a list of senders into the local cache (used for CSV import).
+     */
+    suspend fun importSenders(senders: List<SenderCacheEntity>) {
+        database?.senderCacheDao()?.insertSenders(senders)
+    }
+
+    /**
+     * Clears all cached senders (used for CSV delete all).
+     */
+    suspend fun clearAllSenders() {
+        database?.senderCacheDao()?.clearAll()
+    }
+
+}
             is SenderValidationResult.Valid -> {
                 val sanitized = validation.sanitizedSender
 
@@ -57,14 +79,80 @@ class SenderRepository(
                                 isFinalized = cached.isFinalized
                             )
                         )
-                    }
-                }
+                    
+    /**
+     * Returns all cached senders from the local Room database.
+     */
+    suspend fun getAllSenders(): List<SenderCacheEntity> {
+        return database?.senderCacheDao()?.getAllSenders() ?: emptyList()
+    }
+
+    /**
+     * Inserts a list of senders into the local cache (used for CSV import).
+     */
+    suspend fun importSenders(senders: List<SenderCacheEntity>) {
+        database?.senderCacheDao()?.insertSenders(senders)
+    }
+
+    /**
+     * Clears all cached senders (used for CSV delete all).
+     */
+    suspend fun clearAllSenders() {
+        database?.senderCacheDao()?.clearAll()
+    }
+
+}
+                
+    /**
+     * Returns all cached senders from the local Room database.
+     */
+    suspend fun getAllSenders(): List<SenderCacheEntity> {
+        return database?.senderCacheDao()?.getAllSenders() ?: emptyList()
+    }
+
+    /**
+     * Inserts a list of senders into the local cache (used for CSV import).
+     */
+    suspend fun importSenders(senders: List<SenderCacheEntity>) {
+        database?.senderCacheDao()?.insertSenders(senders)
+    }
+
+    /**
+     * Clears all cached senders (used for CSV delete all).
+     */
+    suspend fun clearAllSenders() {
+        database?.senderCacheDao()?.clearAll()
+    }
+
+}
 
                 val remoteResult = ApiClient.safeApiCall {
                     apiService.lookupSender(
                         SenderLookupRequestDto(sender = sanitized)
                     )
-                }
+                
+    /**
+     * Returns all cached senders from the local Room database.
+     */
+    suspend fun getAllSenders(): List<SenderCacheEntity> {
+        return database?.senderCacheDao()?.getAllSenders() ?: emptyList()
+    }
+
+    /**
+     * Inserts a list of senders into the local cache (used for CSV import).
+     */
+    suspend fun importSenders(senders: List<SenderCacheEntity>) {
+        database?.senderCacheDao()?.insertSenders(senders)
+    }
+
+    /**
+     * Clears all cached senders (used for CSV delete all).
+     */
+    suspend fun clearAllSenders() {
+        database?.senderCacheDao()?.clearAll()
+    }
+
+}
 
                 if (remoteResult is NetworkResult.Success && database != null) {
                     val data = remoteResult.data
@@ -77,11 +165,143 @@ class SenderRepository(
                                 isFinalized = data.isFinalized
                             )
                         )
-                    }
-                }
+                    
+    /**
+     * Returns all cached senders from the local Room database.
+     */
+    suspend fun getAllSenders(): List<SenderCacheEntity> {
+        return database?.senderCacheDao()?.getAllSenders() ?: emptyList()
+    }
+
+    /**
+     * Inserts a list of senders into the local cache (used for CSV import).
+     */
+    suspend fun importSenders(senders: List<SenderCacheEntity>) {
+        database?.senderCacheDao()?.insertSenders(senders)
+    }
+
+    /**
+     * Clears all cached senders (used for CSV delete all).
+     */
+    suspend fun clearAllSenders() {
+        database?.senderCacheDao()?.clearAll()
+    }
+
+}
+                
+    /**
+     * Returns all cached senders from the local Room database.
+     */
+    suspend fun getAllSenders(): List<SenderCacheEntity> {
+        return database?.senderCacheDao()?.getAllSenders() ?: emptyList()
+    }
+
+    /**
+     * Inserts a list of senders into the local cache (used for CSV import).
+     */
+    suspend fun importSenders(senders: List<SenderCacheEntity>) {
+        database?.senderCacheDao()?.insertSenders(senders)
+    }
+
+    /**
+     * Clears all cached senders (used for CSV delete all).
+     */
+    suspend fun clearAllSenders() {
+        database?.senderCacheDao()?.clearAll()
+    }
+
+}
 
                 remoteResult
-            }
-        }
+            
+    /**
+     * Returns all cached senders from the local Room database.
+     */
+    suspend fun getAllSenders(): List<SenderCacheEntity> {
+        return database?.senderCacheDao()?.getAllSenders() ?: emptyList()
     }
+
+    /**
+     * Inserts a list of senders into the local cache (used for CSV import).
+     */
+    suspend fun importSenders(senders: List<SenderCacheEntity>) {
+        database?.senderCacheDao()?.insertSenders(senders)
+    }
+
+    /**
+     * Clears all cached senders (used for CSV delete all).
+     */
+    suspend fun clearAllSenders() {
+        database?.senderCacheDao()?.clearAll()
+    }
+
+}
+        
+    /**
+     * Returns all cached senders from the local Room database.
+     */
+    suspend fun getAllSenders(): List<SenderCacheEntity> {
+        return database?.senderCacheDao()?.getAllSenders() ?: emptyList()
+    }
+
+    /**
+     * Inserts a list of senders into the local cache (used for CSV import).
+     */
+    suspend fun importSenders(senders: List<SenderCacheEntity>) {
+        database?.senderCacheDao()?.insertSenders(senders)
+    }
+
+    /**
+     * Clears all cached senders (used for CSV delete all).
+     */
+    suspend fun clearAllSenders() {
+        database?.senderCacheDao()?.clearAll()
+    }
+
+}
+    
+    /**
+     * Returns all cached senders from the local Room database.
+     */
+    suspend fun getAllSenders(): List<SenderCacheEntity> {
+        return database?.senderCacheDao()?.getAllSenders() ?: emptyList()
+    }
+
+    /**
+     * Inserts a list of senders into the local cache (used for CSV import).
+     */
+    suspend fun importSenders(senders: List<SenderCacheEntity>) {
+        database?.senderCacheDao()?.insertSenders(senders)
+    }
+
+    /**
+     * Clears all cached senders (used for CSV delete all).
+     */
+    suspend fun clearAllSenders() {
+        database?.senderCacheDao()?.clearAll()
+    }
+
+}
+
+    /**
+     * Returns all cached senders from the local Room database.
+     */
+    suspend fun getAllSenders(): List<SenderCacheEntity> {
+        return database?.senderCacheDao()?.getAllSenders() ?: emptyList()
+    }
+
+    /**
+     * Inserts a list of senders into the local cache (used for CSV import).
+     */
+    suspend fun importSenders(senders: List<SenderCacheEntity>) {
+        database?.senderCacheDao()?.insertSenders(senders)
+    }
+
+    /**
+     * Clears all cached senders (used for CSV delete all).
+     */
+    suspend fun clearAllSenders() {
+        database?.senderCacheDao()?.clearAll()
+    }
+
 }

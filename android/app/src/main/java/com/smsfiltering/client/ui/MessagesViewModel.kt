@@ -188,6 +188,78 @@ class MessagesViewModel(
         }
     }
 
+    /**
+     * Export all cached senders to a CSV file.
+     */
+    fun exportSenders(context: android.content.Context, file: java.io.File): Job {
+        return scope.launch {
+            withContext(ioDispatcher) {
+                val senders = repository.getAllSenders()
+                file.bufferedWriter().use { writer ->
+                    writer.write("sender,riskScore,riskLevel,isFinalized,cachedAt\n")
+                    senders.forEach { s ->
+                        writer.write("${s.sender},${s.riskScore},${s.riskLevel},${s.isFinalized},${s.cachedAt}\n")
+                    }
+                }
+            }
+            _uiState.value = _uiState.value.copy(statusMessage = "Gönderenler CSV olarak dışa aktarıldı")
+        }
+    }
+
+    /**
+     * Import senders from a CSV file, replacing existing cache.
+     */
+    fun importSenders(context: android.content.Context, file: java.io.File): Job {
+        return scope.launch {
+            withContext(ioDispatcher) {
+                val lines = file.readLines().drop(1)
+                val entities = lines.mapNotNull { line ->
+                    val parts = line.split(",")
+                    if (parts.size < 5) return@mapNotNull null
+                    SenderCacheEntity(
+                        sender = parts[0],
+                        riskScore = parts[1].toDoubleOrNull() ?: 0.0,
+                        riskLevel = parts[2],
+                        isFinalized = parts[3].toBoolean(),
+                        cachedAt = parts[4].toLongOrNull() ?: System.currentTimeMillis()
+                    )
+                }
+                repository.clearAllSenders()
+                repository.importSenders(entities)
+            }
+            loadSenders()
+            _uiState.value = _uiState.value.copy(statusMessage = "Gönderenler CSV'den içe aktarıldı")
+        }
+    }
+
+    /**
+     * Delete all cached senders.
+     */
+    fun deleteAllSenders(): Job {
+        return scope.launch {
+            withContext(ioDispatcher) {
+                repository.clearAllSenders()
+            }
+            loadSenders()
+            _uiState.value = _uiState.value.copy(statusMessage = "Tüm gönderenler silindi")
+        }
+    }
+
+    fun resetDemoData(): Job {
+        return scope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            withContext(ioDispatcher) {
+                database.filteredMessageDao().clearAll()
+                DemoDataSeeder.seed(database, ioDispatcher)
+            }
+            loadAll()
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                statusMessage = "Demo mesaj seti yüklendi"
+            )
+        }
+    }
+
     fun simulateIncomingSms(sender: String, body: String): Job {
         return scope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
