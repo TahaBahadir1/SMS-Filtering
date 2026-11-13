@@ -154,6 +154,11 @@ class SmsFilterEngine(
                 reasons.add("Orta riskli gönderici ve web bağlantısı tespit edildi")
                 calculatedScore = maxOf(calculatedScore, 0.65)
                 decision = SmsFilterDecision.SUSPICIOUS
+            } else if (hasIban && hasAcilOdeme && !hasLink) {
+                // Kural 6a: IBAN + Acil Ödeme kombinasyonu (linksiz) — orta risk
+                reasons.add("IBAN bilgisi ile acil ödeme baskısı tespit edildi")
+                calculatedScore = maxOf(calculatedScore, 0.60)
+                decision = SmsFilterDecision.SUSPICIOUS
             } else if (hasAcilOdeme && !hasLink) {
                 reasons.add("Acil ödeme veya borç uyarısı içeriyor")
                 calculatedScore = maxOf(calculatedScore, 0.50)
@@ -165,6 +170,16 @@ class SmsFilterEngine(
             } else if ((hasPin || hasSifre) && !isRisksizSender) {
                 reasons.add("Doğrulanmamış gönderenden gelen güvenlik/şifre anahtar kelimeleri")
                 calculatedScore = maxOf(calculatedScore, 0.45)
+                decision = SmsFilterDecision.SUSPICIOUS
+            } else if (hasIban && !isRisksizSender && !hasLink) {
+                // Kural 6b: IBAN tek başına, doğrulanmamış gönderenden — düşük-orta risk
+                reasons.add("Doğrulanmamış gönderenden IBAN bilgisi içeren mesaj")
+                calculatedScore = maxOf(calculatedScore, 0.45)
+                decision = SmsFilterDecision.SUSPICIOUS
+            } else if (matchedTopics.containsKey("OPERATOR") && !isRisksizSender && !hasLink) {
+                // Kural 6c: Operatör konusu, doğrulanmamış gönderici, link yok — şüpheli
+                reasons.add("Doğrulanmamış gönderenden operatör konulu mesaj")
+                calculatedScore = maxOf(calculatedScore, 0.40)
                 decision = SmsFilterDecision.SUSPICIOUS
             }
         }
@@ -217,23 +232,32 @@ class SmsFilterEngine(
         saveToDatabase: Boolean = true
     ): SmsFilterResult {
         // 1. Kategorileri ve Konuları Veritabanından Oku
-        val categoriesWithKeywords = mutableMapOf<String, MutableList<String>>()
-        val topicsWithKeywords = mutableMapOf<String, MutableList<String>>()
+        // Öncelikli olarak keywordRepository üzerinden çek; yoksa doğrudan DAO kullan.
+        val categoriesWithKeywords: Map<String, List<String>>
+        val topicsWithKeywords: Map<String, List<String>>
 
-        database?.let { db ->
-            val categories = db.keywordCategoryDao().getAllCategories()
-            val categoryKeywords = db.keywordCategoryDao().getAllCategoryKeywords()
-            for (cat in categories) {
-                val list = categoryKeywords.filter { it.categoryId == cat.id }.map { it.keyword }
-                categoriesWithKeywords[cat.name] = list.toMutableList()
+        if (keywordRepository != null) {
+            categoriesWithKeywords = keywordRepository.getLocalCategoriesWithKeywords()
+            topicsWithKeywords = keywordRepository.getLocalTopicsWithKeywords()
+        } else {
+            val catMap = mutableMapOf<String, MutableList<String>>()
+            val topicMap = mutableMapOf<String, MutableList<String>>()
+            database?.let { db ->
+                val categories = db.keywordCategoryDao().getAllCategories()
+                val categoryKeywords = db.keywordCategoryDao().getAllCategoryKeywords()
+                for (cat in categories) {
+                    val list = categoryKeywords.filter { it.categoryId == cat.id }.map { it.keyword }
+                    catMap[cat.name] = list.toMutableList()
+                }
+                val topics = db.topicDao().getAllTopics()
+                val topicKeywords = db.topicDao().getAllTopicKeywords()
+                for (topic in topics) {
+                    val list = topicKeywords.filter { it.topicId == topic.id }.map { it.keyword }
+                    topicMap[topic.name] = list.toMutableList()
+                }
             }
-
-            val topics = db.topicDao().getAllTopics()
-            val topicKeywords = db.topicDao().getAllTopicKeywords()
-            for (topic in topics) {
-                val list = topicKeywords.filter { it.topicId == topic.id }.map { it.keyword }
-                topicsWithKeywords[topic.name] = list.toMutableList()
-            }
+            categoriesWithKeywords = catMap
+            topicsWithKeywords = topicMap
         }
 
         // 2. Gönderici Risk Bilgisini Çözümle

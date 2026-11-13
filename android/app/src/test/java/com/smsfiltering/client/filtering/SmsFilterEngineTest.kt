@@ -196,6 +196,57 @@ class SmsFilterEngineTest {
         assertTrue(kumarMatches.contains("slot oyunu"))
     }
 
+    // ----- Yeni Kural Testleri (Görev 3 — Karar Hattı Güncellemesi) -----
+
+    @Test
+    fun testIban_WithAcilOdeme_NoLink_FlagsAsSuspicious() {
+        // Kural 6a: IBAN + Acil Ödeme, link yok → SUSPICIOUS (>= 0.60)
+        val result = engine.evaluate(
+            sender = "+905550009999",
+            body = "IBAN bilgilerinizi güncellemek için son ödeme tarihi bugündür. Hesap numarası: TR00 0000",
+            categoriesWithKeywords = categories,
+            topicsWithKeywords = topics
+        )
+
+        assertEquals(SmsFilterDecision.SUSPICIOUS, result.decision)
+        assertTrue(result.matchedCategories.containsKey("IBAN"))
+        assertTrue(result.matchedCategories.containsKey("ACIL_ODEME"))
+        assertTrue(result.riskScore >= 0.60)
+        assertTrue(result.reasons.any { it.contains("IBAN") && it.contains("acil ödeme") })
+    }
+
+    @Test
+    fun testIban_NoLink_UnknownSender_FlagsAsSuspicious() {
+        // Kural 6b: IBAN tek başına, bilinmeyen gönderici → SUSPICIOUS (>= 0.45)
+        val result = engine.evaluate(
+            sender = "+905550001234",
+            body = "Lütfen havale işlemi için IBAN numaranızı gönderin.",
+            categoriesWithKeywords = categories,
+            topicsWithKeywords = topics
+        )
+
+        assertEquals(SmsFilterDecision.SUSPICIOUS, result.decision)
+        assertTrue(result.matchedCategories.containsKey("IBAN"))
+        assertTrue(result.riskScore >= 0.45)
+        assertTrue(result.reasons.any { it.contains("IBAN") })
+    }
+
+    @Test
+    fun testOperatorTopic_NoLink_UnknownSender_FlagsAsSuspicious() {
+        // Kural 6c: OPERATOR konusu, doğrulanmamış gönderici, link yok → SUSPICIOUS (>= 0.40)
+        val result = engine.evaluate(
+            sender = "+905550007788",
+            body = "Fatura döneminizde data paketi aşımı gerçekleşti. Tarife değişikliği için iletişime geçin.",
+            categoriesWithKeywords = categories,
+            topicsWithKeywords = topics
+        )
+
+        assertEquals(SmsFilterDecision.SUSPICIOUS, result.decision)
+        assertTrue(result.matchedTopics.containsKey("OPERATOR"))
+        assertTrue(result.riskScore >= 0.40)
+        assertTrue(result.reasons.any { it.contains("operatör") })
+    }
+
     @Test
     fun testFilterSmsWithDatabase_PersistsToFilteredMessages() = runBlocking {
         // Yerel önbelleğe sender ekle

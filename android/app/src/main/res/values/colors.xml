@@ -1,0 +1,13 @@
+<resources>
+    <color name="primary">#1976D2</color>
+    <color name="primary_dark">#0D47A1</color>
+    <color name="accent">#FF9800</color>
+    <color name="background">#F5F5F5</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+    <color name="color_safe">#2E7D32</color>
+    <color name="color_suspicious">#F57F17</color>
+    <color name="color_spam">#E65100</color>
+    <color name="color_phishing">#D32F2F</color>
+</resources>

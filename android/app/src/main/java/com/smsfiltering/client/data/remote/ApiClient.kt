@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
 /**
  * Android istemcisi için Retrofit ve OkHttp yapılandırması.
  *
- * Base URL: http://10.0.2.2:8080/api/v1/
+ * Base URL: http://10.0.2.2:8080/api/v2/
  *
  * Not: docs/api-sozlesmesi.md Gizlilik Politikası uyarınca:
  * "istek gövdesi (request body), gönderen değeri (sender) ve istemci IP adresi
@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit
  */
 object ApiClient {
 
-    const val DEFAULT_BASE_URL = "http://10.0.2.2:8080/api/v1/"
+    const val DEFAULT_BASE_URL = "http://10.0.2.2:8080/api/v2/"
     private const val TIMEOUT_SECONDS = 15L
 
     val gson: Gson by lazy {

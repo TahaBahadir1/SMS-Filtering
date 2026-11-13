@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">SMS Filtering</string>
+    <string name="permission_header">Gerekli İzinler</string>
+    <string name="permission_sms_title">SMS Alma İzni (RECEIVE_SMS)</string>
+    <string name="permission_sms_desc">Gelen SMS\'leri gerçek zamanlı yakalamak için gereklidir.</string>
+    <string name="permission_notification_title">Bildirim İzni (POST_NOTIFICATIONS)</string>
+    <string name="permission_notification_desc">Filtrelenen SMS ve risk analiz sonuçlarını bildirmek için gereklidir.</string>
+    <string name="status_granted">İzin Verildi</string>
+    <string name="status_denied">İzin Gerekli</string>
+    <string name="btn_request_permissions">İzinleri Talep Et</string>
+    <string name="btn_simulate_phishing">Test Oltalama SMS\'i Simüle Et</string>
+    <string name="recent_messages_header">Son Filtrelenen Mesajlar</string>
+    <string name="empty_messages">Henüz filtrelenmiş bir SMS bulunmuyor.</string>
+</resources>
