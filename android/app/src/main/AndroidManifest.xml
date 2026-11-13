@@ -18,9 +18,14 @@
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="true">
 
+<<<<<<< HEAD
         <!-- Ana Ekran ve İzin Yönetimi -->
         <activity
             android:name="com.smsfiltering.client.ui.MainActivity"
+=======
+        <activity
+            android:name=".MainActivity"
+>>>>>>> 80c74a420c6866d2910c07c5ec713511d415b762
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -28,6 +33,7 @@
             </intent-filter>
         </activity>
 
+<<<<<<< HEAD
         <!-- Gelen SMS'leri Gerçek Zamanlı Yakalayan BroadcastReceiver -->
         <receiver
             android:name="com.smsfiltering.client.receiver.SmsReceiver"
@@ -38,6 +44,8 @@
             </intent-filter>
         </receiver>
 
+=======
+>>>>>>> 80c74a420c6866d2910c07c5ec713511d415b762
     </application>
 
 </manifest>

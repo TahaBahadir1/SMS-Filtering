@@ -1,0 +1,93 @@
+{
+  "topics": [
+    {
+      "name": "BANKA",
+      "keywords": [
+        "kredi kartı",
+        "hesap ekstresi",
+        "kredi başvurusu",
+        "vadeli mevduat",
+        "kart aidatı",
+        "kredi borcu",
+        "hesap özeti",
+        "iban",
+        "para transferi",
+        "eft",
+        "havale",
+        "kullanılabilir limit",
+        "kart şifresi"
+      ]
+    },
+    {
+      "name": "KUMAR",
+      "keywords": [
+        "canlı bahis",
+        "slot oyunu",
+        "deneme bonusu",
+        "çevrimsiz bonus",
+        "casino",
+        "kayıp bonusu",
+        "güvenilir bahis",
+        "bahis oranları",
+        "free spin",
+        "yatırımsız bonus",
+        "sweet bonanza",
+        "giriş adresi",
+        "hoşgeldin bonusu",
+        "vip üyelik"
+      ]
+    },
+    {
+      "name": "BELEDIYE",
+      "keywords": [
+        "belediye başkanlığı",
+        "su kesintisi",
+        "çevre temizlik vergisi",
+        "fen işleri",
+        "emlak vergisi",
+        "muhtarlık",
+        "belediye duyurusu",
+        "askıda fatura",
+        "belediyemizce",
+        "vezne",
+        "imar planı",
+        "sosyal yardım"
+      ]
+    },
+    {
+      "name": "KARGO",
+      "keywords": [
+        "kargo takip",
+        "teslimat şubesi",
+        "gönderiniz yola çıktı",
+        "dağıtıma çıkarıldı",
+        "kurye",
+        "kargo takip no",
+        "adreste bulunamadı",
+        "teslim kodu",
+        "gönderi kodu",
+        "teslim edildi",
+        "kargo şubesi",
+        "gönderiniz teslim",
+        "paketiniz yola"
+      ]
+    },
+    {
+      "name": "OPERATOR",
+      "keywords": [
+        "fatura dönemi",
+        "kalan internet paketi",
+        "taahhüt yenileme",
+        "tarife değişikliği",
+        "faturalı hat",
+        "tl yükleme",
+        "data paketi",
+        "paket aşımı",
+        "kalan kullanım",
+        "tarifeniz sona",
+        "hediye internet",
+        "hat taşıma"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+﻿Algoritma;Dogruluk_Accuracy_Yuzde;Kesinlik_Precision_Yuzde;Duyarlilik_Recall_Yuzde;F1_Skoru_Yuzde;ROC_AUC_Yuzde;Test_TN;Test_FP;Test_FN;Test_TP;Model_Boyutu_KB;Mesaj_Basi_Cikarim_ms;Zorlayici_Mesru_Set_Tek_Basina_FP;Kademeli_Karar_Hatti_FP;Mobil_Cikarim_Uygunlugu
+Lojistik Regresyon (Seçilen Model);99.2;99.67;99.03;99.35;99.93;379;2;6;612;94.7;0.0012;7 / 40 (%17.5);0 / 40 (%0.0);Çok Uygun (Saf Kotlin ile tek iç çarpım + sigmoid, 0 ek kütüphane)
+Multinomial Naive Bayes;96.8;95.64;99.35;97.46;99.92;353;28;4;614;376.8;0.0018;18 / 40 (%45.0);0 / 40 (%0.0);Uygun (Log-olasılık toplamı, ancak olasılık kalibrasyonu zayıf)
+Doğrusal SVM (Calibrated LinearSVC);99.1;99.35;99.19;99.27;99.96;377;4;5;613;283.7;0.0055;9 / 40 (%22.5);0 / 40 (%0.0);Orta (Platt ölçekleme ve çoklu katman ağırlığı gerektirir)
+Random Forest (100 Ağaç);98.2;99.5;97.57;98.53;99.96;378;3;15;603;5219.9;0.0639;0 / 40 (%0.0);0 / 40 (%0.0);Uygun Değil (Binlerce karar düğümü, yüksek RAM/boyut ve gecikme)

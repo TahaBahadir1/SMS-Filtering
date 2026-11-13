@@ -12,5 +12,7 @@ data class SmsFilterResult(
     val matchedCategories: Map<String, List<String>>,
     val matchedTopics: Map<String, List<String>>,
     val extractedUrls: List<String>,
-    val reasons: List<String>
+    val reasons: List<String>,
+    val modelSpamProbability: Double? = null,
+    val inferenceDurationMs: Long? = null
 )

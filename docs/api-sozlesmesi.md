@@ -268,3 +268,57 @@ veya
   "error": "İstek gövdesi okunamadı veya biçimi hatalı"
 }
 ```
+
+
+---
+
+## 3. Gönderen Risk Sinyali Bildirme (Geri Bildirim)
+
+İstemcinin veya arka plan analiz servislerinin bir gönderen hakkında risk sinyali bildirmesini sağlar. Sunucu sinyali kaydeder, gönderenin risk skorunu (`riskScore`) ve risk düzeyini (`riskLevel`) yeniden hesaplar; kesinleşme (`isFinalized`) kurallarını işletir.
+
+> **Gizlilik İlkesi:** İstek gövdesinde ve loglarda **SMS metni veya içeriği kesinlikle yer almaz ve sunucuya gönderilmez**. Yalnızca gönderen başlığı (`sender`), sinyal kaynağı (`source`) ve puanı (`score`) aktarılır.
+
+- **Uç Nokta:** `POST /api/v1/senders/signals`
+- **İstek Başlıkları:** `Content-Type: application/json`
+- **İstek Gövdesi:**
+  ```json
+  {
+    "sender": "BET-VIP",
+    "source": "manuel",
+    "score": 0.95
+  }
+  ```
+
+### Doğrulama Kuralları:
+- `sender`: Boş olamaz (`@NotBlank`), en fazla 32 karakter olabilir (`@Size(max = 32)`).
+- `source`: Boş olamaz (`@NotBlank`), geçerli kaynak değerleri: `buyuk_veri`, `yapay_zeka`, `manuel`.
+- `score`: Boş olamaz (`@NotNull`), `0.00` ile `1.00` arasında ondalık sayı olmalıdır (`@DecimalMin("0.00")`, `@DecimalMax("1.00")`).
+
+### Kesinleşme (isFinalized) Kuralları:
+1. **Manuel Kaynak:** Sinyallerden herhangi biri `manuel` (kullanıcı/yönetici bildirimi) kaynaklı ise durum anında **kesinleşmiş** kabul edilir (`isFinalized: true`).
+2. **Çoklu Kaynak Mutabakatı:** `manuel` sinyal yoksa ancak en az 2 farklı kaynaktan (`buyuk_veri`, `yapay_zeka`) sinyal varsa ve bu kaynakların en son sinyallerinin risk düzeyleri (`risksiz`, `orta_riskli`, `riskli`) birbirine eşitse durum **kesinleşmiş** kabul edilir (`isFinalized: true`).
+3. **Tek Kaynak veya Uyuşmazlık:** Yalnızca tek kaynaktan sinyal varsa veya kaynakların risk düzeyleri çelişiyorsa kesinleşmemiş kabul edilir (`isFinalized: false`).
+
+### Başarılı Cevap (HTTP 200 OK):
+```json
+{
+  "sender": "BET-VIP",
+  "riskScore": 0.95,
+  "riskLevel": "riskli",
+  "isFinalized": true
+}
+```
+
+### Hata Cevapları (HTTP 400 Bad Request):
+- Eksik veya geçersiz alanlar (`sender` boş, 32 karakterden uzun, `source` geçersiz, `score` 0.00-1.00 aralığı dışında vb.):
+  ```json
+  {
+    "error": "Risk skoru en fazla 1.00 olabilir"
+  }
+  ```
+- Geçersiz JSON gövdesi:
+  ```json
+  {
+    "error": "İstek gövdesi okunamadı veya biçimi hatalı"
+  }
+  ```

@@ -1,7 +1,9 @@
 *.iml
 .gradle
+.kotlin
 /local.properties
 local.properties
+!local.properties.example
 .idea
 build/
 /build
