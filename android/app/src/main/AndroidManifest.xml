@@ -1,18 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.smsfiltering.client">
-    <!-- Added permissions for CSV import/export -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Ağ İzinleri -->
+    <!-- Depolama İzinleri (CSV İçe / Dışa Aktarma - FR-09) -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+
+    <!-- Ağ İzinleri (Kelime Senkronizasyonu ve Gönderen İtibar Sorgusu - FR-05) -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- SMS Dinleme İzni (Çalışma Zamanı İzni) -->
+    <!-- SMS Dinleme İzni (Çalışma Zamanı İzni - FR-02) -->
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
 
-    <!-- Android 13+ (API 33) Bildirim Gösterme İzni (Çalışma Zamanı İzin) -->
+    <!-- Android 13+ (API 33) Bildirim Gösterme İzni (Çalışma Zamanı İzni - FR-08) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
@@ -22,9 +23,9 @@
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="true">
 
-        <!-- Ana Ekran ve İzin Yönetimi -->
+        <!-- Ana Ekran ve Uygulama Launcher Aktivitesi -->
         <activity
-            android:name="com.smsfiltering.client.ui.MainActivity"
+            android:name="com.smsfiltering.client.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -32,7 +33,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Gelen SMS'leri Gerçek Zamanlı Yakalayan BroadcastReceiver -->
+        <!-- Gelen SMS'leri Gerçek Zamanlı Yakalayan BroadcastReceiver (FR-02) -->
         <receiver
             android:name="com.smsfiltering.client.receiver.SmsReceiver"
             android:exported="true"

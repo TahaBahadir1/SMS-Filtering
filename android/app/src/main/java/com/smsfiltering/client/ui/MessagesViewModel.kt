@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.util.Locale
 
 enum class AppTab {
@@ -153,9 +154,52 @@ class MessagesViewModel(
     fun deleteSenderRule(sender: String): Job {
         return scope.launch {
             withContext(ioDispatcher) {
-                database.senderCacheDao().deleteSender(sender.trim())
+                senderRepository.deleteSender(sender.trim())
             }
             loadSenders()
+            _uiState.value = _uiState.value.copy(statusMessage = "$sender kaydı silindi")
+        }
+    }
+
+    /**
+     * FR-06: Tüm kayıtlı gönderenleri yerel veritabanından siler.
+     */
+    fun deleteAllSenders(): Job {
+        return scope.launch {
+            withContext(ioDispatcher) {
+                senderRepository.clearAllSenders()
+            }
+            loadSenders()
+            _uiState.value = _uiState.value.copy(statusMessage = "Tüm gönderenler silindi")
+        }
+    }
+
+    /**
+     * FR-09: Kayıtlı gönderenleri CSV dosyasına dışa aktarır.
+     */
+    fun exportSenders(file: File): Job {
+        return scope.launch {
+            val success = withContext(ioDispatcher) {
+                senderRepository.exportSendersToCsv(file)
+            }
+            _uiState.value = _uiState.value.copy(
+                statusMessage = if (success) "Gönderenler CSV olarak dışa aktarıldı: ${file.name}" else "CSV aktarımı başarısız oldu"
+            )
+        }
+    }
+
+    /**
+     * FR-09: Belirtilen CSV dosyasından gönderenleri içe aktarır.
+     */
+    fun importSenders(file: File): Job {
+        return scope.launch {
+            val count = withContext(ioDispatcher) {
+                senderRepository.importSendersFromCsv(file)
+            }
+            loadSenders()
+            _uiState.value = _uiState.value.copy(
+                statusMessage = "$count gönderen CSV'den başarıyla içe aktarıldı"
+            )
         }
     }
 
@@ -170,78 +214,6 @@ class MessagesViewModel(
                 isLoading = false,
                 statusMessage = "Senkronizasyon tamamlandı"
             )
-        }
-    }
-
-    fun resetDemoData(): Job {
-        return scope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-            withContext(ioDispatcher) {
-                database.filteredMessageDao().clearAll()
-                DemoDataSeeder.seed(database, ioDispatcher)
-            }
-            loadAll()
-            _uiState.value = _uiState.value.copy(
-                isLoading = false,
-                statusMessage = "Demo mesaj seti yüklendi"
-            )
-        }
-    }
-
-    /**
-     * Export all cached senders to a CSV file.
-     */
-    fun exportSenders(context: android.content.Context, file: java.io.File): Job {
-        return scope.launch {
-            withContext(ioDispatcher) {
-                val senders = repository.getAllSenders()
-                file.bufferedWriter().use { writer ->
-                    writer.write("sender,riskScore,riskLevel,isFinalized,cachedAt\n")
-                    senders.forEach { s ->
-                        writer.write("${s.sender},${s.riskScore},${s.riskLevel},${s.isFinalized},${s.cachedAt}\n")
-                    }
-                }
-            }
-            _uiState.value = _uiState.value.copy(statusMessage = "Gönderenler CSV olarak dışa aktarıldı")
-        }
-    }
-
-    /**
-     * Import senders from a CSV file, replacing existing cache.
-     */
-    fun importSenders(context: android.content.Context, file: java.io.File): Job {
-        return scope.launch {
-            withContext(ioDispatcher) {
-                val lines = file.readLines().drop(1)
-                val entities = lines.mapNotNull { line ->
-                    val parts = line.split(",")
-                    if (parts.size < 5) return@mapNotNull null
-                    SenderCacheEntity(
-                        sender = parts[0],
-                        riskScore = parts[1].toDoubleOrNull() ?: 0.0,
-                        riskLevel = parts[2],
-                        isFinalized = parts[3].toBoolean(),
-                        cachedAt = parts[4].toLongOrNull() ?: System.currentTimeMillis()
-                    )
-                }
-                repository.clearAllSenders()
-                repository.importSenders(entities)
-            }
-            loadSenders()
-            _uiState.value = _uiState.value.copy(statusMessage = "Gönderenler CSV'den içe aktarıldı")
-        }
-    }
-
-    /**
-     * Delete all cached senders.
-     */
-    fun deleteAllSenders(): Job {
-        return scope.launch {
-            withContext(ioDispatcher) {
-                repository.clearAllSenders()
-            }
-            loadSenders()
-            _uiState.value = _uiState.value.copy(statusMessage = "Tüm gönderenler silindi")
         }
     }
 

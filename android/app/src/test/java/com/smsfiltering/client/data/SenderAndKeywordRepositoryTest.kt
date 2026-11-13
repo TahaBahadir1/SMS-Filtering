@@ -219,4 +219,28 @@ class SenderAndKeywordRepositoryTest {
         assertEquals(400, error.code)
         assertEquals("İstek gövdesi okunamadı veya biçimi hatalı", error.message)
     }
+
+
+    @Test
+    fun testExportAndImportSendersFromCsv() = runBlocking {
+        val tempFile = java.io.File.createTempFile("senders_test", ".csv")
+        try {
+            val exportSuccess = senderRepository.exportSendersToCsv(tempFile)
+            assertTrue("CSV dosyası başarıyla oluşturulmalı", exportSuccess)
+            assertTrue(tempFile.exists())
+
+            val csvContent = """
+                sender;riskScore;riskLevel;isFinalized;cachedAt
+                +905551112233;0.85;HIGH;true;1700000000000
+                BANKA-TEST;0.05;LOW;false;1700000001000
+                DOLANDIRICI;0.99;HIGH;true;1700000002000
+            """.trimIndent()
+            tempFile.writeText(csvContent, Charsets.UTF_8)
+
+            val importedCount = senderRepository.importSendersFromCsv(tempFile)
+            assertEquals("3 adet gönderen kaydı başarıyla ayrıştırılmalı", 3, importedCount)
+        } finally {
+            tempFile.delete()
+        }
+    }
 }

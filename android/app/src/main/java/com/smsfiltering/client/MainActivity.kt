@@ -10,6 +10,8 @@ import android.widget.Toast
 import com.smsfiltering.client.data.local.AppDatabase
 import com.smsfiltering.client.data.repository.KeywordRepository
 import com.smsfiltering.client.data.repository.KeywordSyncResult
+import com.smsfiltering.client.notification.NotificationHelper
+import com.smsfiltering.client.permission.PermissionHelper
 import com.smsfiltering.client.ui.MessagesViewModel
 import com.smsfiltering.client.ui.NavigationScreen
 import com.smsfiltering.client.ui.UiState
@@ -51,6 +53,17 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // 0. Bildirim Kanallarını Başlat ve Gerekli İzinleri İste (FR-02, FR-08)
+        try {
+            NotificationHelper.createNotificationChannels(this)
+            val missing = PermissionHelper.getMissingPermissions(this)
+            if (missing.isNotEmpty()) {
+                requestPermissions(missing.toTypedArray(), 1001)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Bildirim ve izin yapılandırması başlatılamadı", e)
+        }
+
         // 1. 12 saatlik arka plan WorkManager görevini planla
         try {
             KeywordSyncWorker.schedule(applicationContext)
@@ -80,7 +93,15 @@ class MainActivity : Activity() {
                 1f
             )
         }
+        rootLayout.addView(contentFrame)
 
+        // Alt Navigasyon Çubuğu
+        bottomNav = BottomNavView(this) { selectedNav ->
+            viewModel.navigateTo(selectedNav)
+        }
+        rootLayout.addView(bottomNav)
+
+        // Sayfa Görünümlerini Başlat
         messagesListView = MessagesListView(this, viewModel)
         messageDetailView = MessageDetailView(this, viewModel)
         sendersView = SendersView(this, viewModel)
@@ -91,77 +112,69 @@ class MainActivity : Activity() {
         contentFrame.addView(sendersView)
         contentFrame.addView(simulatorView)
 
-        rootLayout.addView(contentFrame)
-
-        bottomNav = BottomNavView(this, viewModel)
-        rootLayout.addView(bottomNav)
-
         setContentView(rootLayout)
 
-        // State dinleme ve ekran güncelleme
-        observeState()
-    }
-
-    private fun observeState() {
+        // 4. UI Durum Akışını (StateFlow) Dinle
         scope.launch {
             viewModel.uiState.collect { state ->
-                renderScreen(state)
+                renderState(state)
             }
         }
     }
 
-    private fun renderScreen(state: UiState) {
-        messagesListView.visibility = if (state.currentNav == NavigationScreen.MESSAGES) View.VISIBLE else View.GONE
-        messageDetailView.visibility = if (state.currentNav == NavigationScreen.MESSAGE_DETAIL) View.VISIBLE else View.GONE
-        sendersView.visibility = if (state.currentNav == NavigationScreen.SENDERS) View.VISIBLE else View.GONE
-        simulatorView.visibility = if (state.currentNav == NavigationScreen.SIMULATOR) View.VISIBLE else View.GONE
-
-        // Detay ekranında tam odaklanma için alt çubuk gizlenir
-        bottomNav.visibility = if (state.currentNav == NavigationScreen.MESSAGE_DETAIL) View.GONE else View.VISIBLE
+    private fun renderState(state: UiState) {
+        messagesListView.visibility = View.GONE
+        messageDetailView.visibility = View.GONE
+        sendersView.visibility = View.GONE
+        simulatorView.visibility = View.GONE
 
         when (state.currentNav) {
-            NavigationScreen.MESSAGES -> messagesListView.render(state)
-            NavigationScreen.MESSAGE_DETAIL -> messageDetailView.render(state)
-            NavigationScreen.SENDERS -> sendersView.render(state)
-            NavigationScreen.SIMULATOR -> simulatorView.render(state)
+            NavigationScreen.MESSAGES -> {
+                messagesListView.visibility = View.VISIBLE
+                messagesListView.render(state)
+                bottomNav.selectTab(NavigationScreen.MESSAGES)
+            }
+            NavigationScreen.MESSAGE_DETAIL -> {
+                messageDetailView.visibility = View.VISIBLE
+                messageDetailView.render(state)
+            }
+            NavigationScreen.SENDERS -> {
+                sendersView.visibility = View.VISIBLE
+                sendersView.render(state)
+                bottomNav.selectTab(NavigationScreen.SENDERS)
+            }
+            NavigationScreen.SIMULATOR -> {
+                simulatorView.visibility = View.VISIBLE
+                simulatorView.render(state)
+                bottomNav.selectTab(NavigationScreen.SIMULATOR)
+            }
         }
 
-        bottomNav.render(state)
+        bottomNav.updateBadges(
+            inbox = state.inboxCount,
+            quarantine = state.quarantineCount,
+            blocked = state.blockedCount
+        )
 
         state.statusMessage?.let { msg ->
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
         }
     }
 
-    override fun onBackPressed() {
-        if (viewModel.uiState.value.currentNav != NavigationScreen.MESSAGES) {
-            viewModel.navigateTo(NavigationScreen.MESSAGES)
-        } else {
-            super.onBackPressed()
-        }
-    }
-
     private fun syncKeywordsOnStartup() {
-        CoroutineScope(Dispatchers.IO).launch {
-            val database = AppDatabase.getInstance(applicationContext)
-            val repository = KeywordRepository(database = database)
-
+        scope.launch(Dispatchers.IO) {
             try {
-                when (val result = repository.sync()) {
-                    is KeywordSyncResult.Success -> {
-                        Log.i(
-                            TAG,
-                            "Kategori sayısı (${result.categoriesCount}), Kelime sayısı (${result.keywordsCount}), Konu sayısı (${result.topicsCount}) ve version: ${result.version}"
-                        )
+                val db = AppDatabase.getInstance(applicationContext)
+                val repo = KeywordRepository(database = db)
+                when (val result = repo.sync(force = false)) {
+                    is KeywordSyncResult.Updated -> {
+                        Log.i(TAG, "Başlangıçta kelime listesi başarıyla güncellendi: Sürüm ${result.newVersion}")
                     }
                     is KeywordSyncResult.AlreadyUpToDate -> {
-                        Log.i(TAG, "Kategori ve kelimeler güncel (version: ${result.version})")
+                        Log.d(TAG, "Kelime listesi zaten güncel.")
                     }
-                    is KeywordSyncResult.Error -> {
-                        Log.w(TAG, "Senkronizasyon sunucu hatası: HTTP ${result.code}")
-                    }
-                    is KeywordSyncResult.Exception -> {
-                        Log.w(TAG, "Senkronizasyon ağ hatası, yerel veriler korunuyor")
+                    is KeywordSyncResult.NetworkError -> {
+                        Log.w(TAG, "Başlangıçta sunucuya ulaşılamadı (${result.message}), yerel veriler kullanılıyor.")
                     }
                 }
             } catch (e: Exception) {

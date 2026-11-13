@@ -13,10 +13,12 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import com.smsfiltering.client.data.local.entity.SenderCacheEntity
 import com.smsfiltering.client.ui.MessagesViewModel
 import com.smsfiltering.client.ui.UiState
 import com.smsfiltering.client.ui.theme.AppTheme
+import java.io.File
 import java.util.Locale
 
 class SendersView(
@@ -63,6 +65,55 @@ class SendersView(
         }
         topBar.addView(addBtn)
         addView(topBar)
+
+        // 1.1 CSV İçe/Dışa Aktarma ve Silme Eylem Çubuğu (FR-06, FR-09)
+        val actionRow = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(20), 0, dp(20), dp(12))
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+        }
+
+        val exportCsvBtn = Button(context).apply {
+            text = "📤 CSV Dışa Aktar"
+            textSize = 12f
+            isAllCaps = false
+            setTextColor(AppTheme.COLOR_TEXT_PRIMARY)
+            background = AppTheme.createButtonDrawable(AppTheme.COLOR_SURFACE_LIGHT, dp(12).toFloat(), AppTheme.COLOR_BORDER, 1)
+            setPadding(dp(10), dp(6), dp(10), dp(6))
+            val lp = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginEnd = dp(6)
+            }
+            layoutParams = lp
+            setOnClickListener {
+                val csvFile = File(context.getExternalFilesDir(null) ?: context.filesDir, "gonderenler.csv")
+                viewModel.exportSenders(csvFile)
+            }
+        }
+        actionRow.addView(exportCsvBtn)
+
+        val importCsvBtn = Button(context).apply {
+            text = "📥 CSV İçe Aktar"
+            textSize = 12f
+            isAllCaps = false
+            setTextColor(AppTheme.COLOR_TEXT_PRIMARY)
+            background = AppTheme.createButtonDrawable(AppTheme.COLOR_SURFACE_LIGHT, dp(12).toFloat(), AppTheme.COLOR_BORDER, 1)
+            setPadding(dp(10), dp(6), dp(10), dp(6))
+            val lp = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = dp(6)
+            }
+            layoutParams = lp
+            setOnClickListener {
+                val csvFile = File(context.getExternalFilesDir(null) ?: context.filesDir, "gonderenler.csv")
+                if (csvFile.exists()) {
+                    viewModel.importSenders(csvFile)
+                } else {
+                    Toast.makeText(context, "İçe aktarılacak gonderenler.csv bulunamadı", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        actionRow.addView(importCsvBtn)
+        addView(actionRow)
 
         // 2. Kaydırılabilir Gönderenler Listesi
         val scrollView = ScrollView(context).apply {
@@ -382,4 +433,3 @@ class SendersView(
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 }
-
