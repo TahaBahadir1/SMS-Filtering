@@ -194,7 +194,50 @@ class SmsFilterEngine(
             calculatedScore = maxOf(calculatedScore, 0.80)
         }
 
-<<<<<<< HEAD
+// Rule 6: Suspicious Situations (Medium Risk)
+if (decision == SmsFilterDecision.SAFE) {
+    if (isOrtaRiskliSender && hasLink) {
+        reasons.add("Orta riskli gönderici ve web bağlantısı tespit edildi")
+        calculatedScore = maxOf(calculatedScore, 0.65)
+        decision = SmsFilterDecision.SUSPICIOUS
+    } else if (hasIban && hasAcilOdeme && !hasLink) {
+        // Rule 6a: IBAN + Urgent Payment without link – medium risk
+        reasons.add("IBAN bilgisi ile acil ödeme baskısı tespit edildi")
+        calculatedScore = maxOf(calculatedScore, 0.60)
+        decision = SmsFilterDecision.SUSPICIOUS
+    } else if (hasAcilOdeme && !hasLink) {
+        reasons.add("Acil ödeme veya borç uyarısı içeriyor")
+        calculatedScore = maxOf(calculatedScore, 0.50)
+        decision = SmsFilterDecision.SUSPICIOUS
+    } else if (hasLink && !isRisksizSender) {
+        reasons.add("Bilinmeyen veya doğrulanmamış gönderenden web bağlantısı")
+        calculatedScore = maxOf(calculatedScore, 0.55)
+        decision = SmsFilterDecision.SUSPICIOUS
+    } else if ((hasPin || hasSifre) && !isRisksizSender) {
+        reasons.add("Doğrulanmamış gönderenden gelen güvenlik/şifre anahtar kelimeleri")
+        calculatedScore = maxOf(calculatedScore, 0.45)
+        decision = SmsFilterDecision.SUSPICIOUS
+    } else if (hasIban && !isRisksizSender && !hasLink) {
+        // Rule 6b: IBAN alone from unverified sender – low‑medium risk
+        reasons.add("Doğrulanmamış gönderenden IBAN bilgisi içeren mesaj")
+        calculatedScore = maxOf(calculatedScore, 0.45)
+        decision = SmsFilterDecision.SUSPICIOUS
+    } else if (matchedTopics.containsKey("OPERATOR") && !isRisksizSender && !hasLink) {
+        // Rule 6c: Operator topic from unverified sender without link – suspicious
+        reasons.add("Doğrulanmamış gönderenden operatör konulu mesaj")
+        calculatedScore = maxOf(calculatedScore, 0.40)
+        decision = SmsFilterDecision.SUSPICIOUS
+    }
+}
+
+// Rule 7: Safe / Non‑Risky Sender Exception
+if (isRisksizSender && !hasLink) {
+    if (hasPin || hasSifre) {
+        reasons.clear()
+        reasons.add("Doğrulanmış güvenli göndericiden işlem/güvenlik bildirimi")
+        calculatedScore = senderScore
+    }
+}
         // Kural 6: Şüpheli Durumlar (Orta Risk)
         if (decision == SmsFilterDecision.SAFE) {
             if (isOrtaRiskliSender && hasLink) {
@@ -231,20 +274,7 @@ class SmsFilterEngine(
             }
         }
 
-        // Kural 7: Güvenli / Risksiz Gönderici İstisnası
-        if (isRisksizSender && !hasLink && decision != SmsFilterDecision.SPAM) {
-            if (decision == SmsFilterDecision.SUSPICIOUS && (hasPin || hasSifre)) {
-                // Bankanın normal bilgilendirme / tek kullanımlık SMS'i
-=======
-        // Güvenli / Risksiz Gönderici İstisnası
-        if (isRisksizSender && !hasLink) {
-            if (hasPin || hasSifre) {
->>>>>>> 80c74a420c6866d2910c07c5ec713511d415b762
-                reasons.clear()
-                reasons.add("Doğrulanmış güvenli göndericiden işlem/güvenlik bildirimi")
-                calculatedScore = senderScore
-            }
-        }
+        
 
         val cappedScore = calculatedScore.coerceIn(0.0, 1.0)
 
