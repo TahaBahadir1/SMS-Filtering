@@ -31,3 +31,12 @@ logging:
     org.hibernate: WARN
     org.hibernate.SQL: WARN
     org.hibernate.type.descriptor.sql: WARN
+
+app:
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    lookup-per-minute: ${RATE_LIMIT_LOOKUP_PER_MIN:60}
+    signal-per-minute: ${RATE_LIMIT_SIGNAL_PER_MIN:20}
+    default-per-minute: ${RATE_LIMIT_DEFAULT_PER_MIN:120}
+  security:
+    signal-api-key: ${SIGNAL_API_KEY:}

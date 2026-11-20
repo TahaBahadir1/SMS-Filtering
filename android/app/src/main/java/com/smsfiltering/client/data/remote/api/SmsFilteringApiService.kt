@@ -3,6 +3,8 @@ package com.smsfiltering.client.data.remote.api
 import com.smsfiltering.client.data.remote.dto.KeywordListResponseDto
 import com.smsfiltering.client.data.remote.dto.SenderLookupRequestDto
 import com.smsfiltering.client.data.remote.dto.SenderLookupResponseDto
+import com.smsfiltering.client.data.remote.dto.SenderSignalRequestDto
+import com.smsfiltering.client.data.remote.dto.SenderSignalResponseDto
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -38,4 +40,17 @@ interface SmsFilteringApiService {
     suspend fun lookupSender(
         @Body request: SenderLookupRequestDto
     ): Response<SenderLookupResponseDto>
+
+    /**
+     * Kullanıcının veya cihaz içi analizin ürettiği anonim gönderen risk sinyalini sunucuya iletir.
+     * Gizlilik: SMS metni kesinlikle gönderilmez.
+     *
+     * @param request Gönderen kimliği, sinyal kaynağı ("manuel", "yapay_zeka") ve risk skoru (0.0-1.0).
+     * @return Sunucuda güncellenmiş gönderen risk durumu ve kesinleşme bilgisi.
+     */
+    @Headers("Content-Type: application/json")
+    @POST("senders/signals")
+    suspend fun submitSignal(
+        @Body request: SenderSignalRequestDto
+    ): Response<SenderSignalResponseDto>
 }

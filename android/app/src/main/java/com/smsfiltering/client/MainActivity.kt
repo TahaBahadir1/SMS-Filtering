@@ -96,9 +96,7 @@ class MainActivity : Activity() {
         rootLayout.addView(contentFrame)
 
         // Alt Navigasyon Çubuğu
-        bottomNav = BottomNavView(this) { selectedNav ->
-            viewModel.navigateTo(selectedNav)
-        }
+        bottomNav = BottomNavView(this, viewModel)
         rootLayout.addView(bottomNav)
 
         // Sayfa Görünümlerini Başlat
@@ -132,7 +130,6 @@ class MainActivity : Activity() {
             NavigationScreen.MESSAGES -> {
                 messagesListView.visibility = View.VISIBLE
                 messagesListView.render(state)
-                bottomNav.selectTab(NavigationScreen.MESSAGES)
             }
             NavigationScreen.MESSAGE_DETAIL -> {
                 messageDetailView.visibility = View.VISIBLE
@@ -141,20 +138,14 @@ class MainActivity : Activity() {
             NavigationScreen.SENDERS -> {
                 sendersView.visibility = View.VISIBLE
                 sendersView.render(state)
-                bottomNav.selectTab(NavigationScreen.SENDERS)
             }
             NavigationScreen.SIMULATOR -> {
                 simulatorView.visibility = View.VISIBLE
                 simulatorView.render(state)
-                bottomNav.selectTab(NavigationScreen.SIMULATOR)
             }
         }
 
-        bottomNav.updateBadges(
-            inbox = state.inboxCount,
-            quarantine = state.quarantineCount,
-            blocked = state.blockedCount
-        )
+        bottomNav.render(state)
 
         state.statusMessage?.let { msg ->
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
@@ -167,17 +158,20 @@ class MainActivity : Activity() {
                 val db = AppDatabase.getInstance(applicationContext)
                 val repo = KeywordRepository(database = db)
                 when (val result = repo.sync(force = false)) {
-                    is KeywordSyncResult.Updated -> {
-                        Log.i(TAG, "Başlangıçta kelime listesi başarıyla güncellendi: Sürüm ${result.newVersion}")
+                    is KeywordSyncResult.Success -> {
+                        Log.i(TAG, "Başlangıçta kelime listesi güncellendi (version: ${result.version}, kategori: ${result.categoriesCount}, konu: ${result.topicsCount})")
                     }
                     is KeywordSyncResult.AlreadyUpToDate -> {
-                        Log.d(TAG, "Kelime listesi zaten güncel.")
+                        Log.i(TAG, "Kategori ve kelimeler güncel (version: ${result.version})")
                     }
-                    is KeywordSyncResult.NetworkError -> {
-                        Log.w(TAG, "Başlangıçta sunucuya ulaşılamadı (${result.message}), yerel veriler kullanılıyor.")
+                    is KeywordSyncResult.Error -> {
+                        Log.w(TAG, "Başlangıçta sunucuya ulaşılamadı (kod: ${result.code}), yerel veriler kullanılıyor.")
+                    }
+                    is KeywordSyncResult.Exception -> {
+                        Log.w(TAG, "Başlangıçta ağ bağlantısı kurulamadı, yerel veriler kullanılıyor.")
                     }
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 Log.w(TAG, "Senkronizasyon sırasında hata oluştu, yerel veriler korunuyor")
             }
         }

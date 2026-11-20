@@ -34,3 +34,37 @@ data class SenderLookupResponseDto(
     @SerializedName("isFinalized")
     val isFinalized: Boolean = false
 )
+
+/**
+ * Gönderici risk sinyali gönderim istek DTO'su (Kapalı Döngü Geri Bildirim).
+ *
+ * POST /api/v1/senders/signals
+ * Gizlilik: SMS metni kesinlikle gönderilmez; yalnızca gönderen kimliği, kaynak ve skor iletilir.
+ */
+data class SenderSignalRequestDto(
+    @SerializedName("sender")
+    val sender: String,
+
+    @SerializedName("source")
+    val source: String,
+
+    @SerializedName("score")
+    val score: Double
+)
+
+/**
+ * Gönderici risk sinyali yanıt DTO'su.
+ */
+data class SenderSignalResponseDto(
+    @SerializedName("sender")
+    val sender: String,
+
+    @SerializedName("riskScore")
+    val riskScore: Double,
+
+    @SerializedName("riskLevel")
+    val riskLevel: String,
+
+    @SerializedName("isFinalized")
+    val isFinalized: Boolean
+)

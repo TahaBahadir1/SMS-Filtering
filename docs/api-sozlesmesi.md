@@ -278,8 +278,8 @@ veya
 
 > **Gizlilik İlkesi:** İstek gövdesinde ve loglarda **SMS metni veya içeriği kesinlikle yer almaz ve sunucuya gönderilmez**. Yalnızca gönderen başlığı (`sender`), sinyal kaynağı (`source`) ve puanı (`score`) aktarılır.
 
-- **Uç Nokta:** `POST /api/v1/senders/signals`
-- **İstek Başlıkları:** `Content-Type: application/json`
+- **Uç Nokta:** `POST /api/v1/senders/signals` *(ve v2 eşiti: `POST /api/v2/senders/signals`)*
+- **İstek Başlıkları:** `Content-Type: application/json` *(isteğe bağlı koruma açıksa: `X-API-Key: <anahtar>`)*
 - **İstek Gövdesi:**
   ```json
   {
@@ -322,3 +322,43 @@ veya
     "error": "İstek gövdesi okunamadı veya biçimi hatalı"
   }
   ```
+
+---
+
+## 4. Sağlık Kontrolü ve Anonim Metrikler
+
+Sunucunun ayakta olduğunu ve gizlilik ilkelerini ihlal etmeyen (PII içermeyen) toplam işlem sayaçlarını döner. Hız sınırlamasına (rate limit) tabi değildir.
+
+- **Uç Noktalar:** `GET /api/v1/health` veya `GET /api/v2/health`
+
+### Başarılı Cevap (HTTP 200 OK):
+```json
+{
+  "status": "UP",
+  "uptimeSeconds": 1842,
+  "totalLookups": 42,
+  "totalSignals": 7,
+  "totalKeywordSyncs": 12,
+  "totalRateLimited": 0
+}
+```
+
+---
+
+## 5. Hız Sınırlama (Rate Limiting) ve Sinyal Zehirlenmesi Koruması
+
+Sunucu, kamu ağlarına (ör. Cloudflare Tunnel) açık çalışma senaryolarında kötüye kullanım ve sinyal zehirlenmesini önlemek için bellek içi sabit pencereli hız sınırlama uygular:
+
+- **Gizlilik:** İstemci IP adresi asla düz metin olarak saklanmaz veya loglanmaz; her JVM oturumunda rastgele üretilen tuz (ephemeral salt) ile SHA-256 özetine dönüştürülerek yalnızca bellek içinde tutulur.
+- **Varsayılan Limitler (dakika başına):**
+  - `POST /api/v*/senders/lookup`: 60 istek/dk
+  - `POST /api/v*/senders/signals`: 20 istek/dk
+  - Diğer `/api/**` uç noktaları: 120 istek/dk
+- **Yanıt Başlıkları:** `X-RateLimit-Limit`, `X-RateLimit-Remaining`, limit aşıldığında `Retry-After`.
+- **Hata Cevabı (HTTP 429 Too Many Requests):**
+  ```json
+  {
+    "error": "Çok fazla istek gönderildi, lütfen daha sonra tekrar deneyin"
+  }
+  ```
+- **İsteğe Bağlı Sinyal API Anahtarı (`SIGNAL_API_KEY`):** Sunucu ortam değişkeni tanımlıysa `POST /api/v*/senders/signals` çağrılarında `X-API-Key` başlığı doğrulanır; geçersiz veya eksik anahtarda **HTTP 401 Unauthorized** döner.

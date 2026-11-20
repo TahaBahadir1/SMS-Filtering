@@ -7,6 +7,8 @@ import com.smsfiltering.client.data.remote.NetworkResult
 import com.smsfiltering.client.data.remote.api.SmsFilteringApiService
 import com.smsfiltering.client.data.remote.dto.SenderLookupRequestDto
 import com.smsfiltering.client.data.remote.dto.SenderLookupResponseDto
+import com.smsfiltering.client.data.remote.dto.SenderSignalRequestDto
+import com.smsfiltering.client.data.remote.dto.SenderSignalResponseDto
 import com.smsfiltering.client.util.SenderValidationResult
 import com.smsfiltering.client.util.TurkishTextNormalizer
 import java.io.File
@@ -82,6 +84,60 @@ class SenderRepository(
                             )
                         )
                     }
+                }
+
+                remoteResult
+            }
+        }
+    }
+
+    /**
+     * Kullanıcının verdiği engelleme/onay kararını veya cihaz içi risk sinyalini
+     * SMS metni paylaşmadan anonim olarak sunucuya bildirir (POST /api/v1/senders/signals).
+     *
+     * Ağ hatası, sunucu kesintisi veya 429 hız sınırı durumunda uygulama çökmez;
+     * yerel veritabanı kararı korunur ve hata güvenli biçimde NetworkResult olarak döner.
+     */
+    suspend fun submitSignal(
+        sender: String?,
+        source: String = "manuel",
+        score: Double
+    ): NetworkResult<SenderSignalResponseDto> {
+        val validSources = setOf("manuel", "yapay_zeka", "buyuk_veri")
+        if (source !in validSources) {
+            return NetworkResult.Error(code = 400, message = "Geçersiz sinyal kaynağı")
+        }
+        if (score.isNaN() || score < 0.0 || score > 1.0) {
+            return NetworkResult.Error(code = 400, message = "Risk skoru 0.00 ile 1.00 arasında olmalıdır")
+        }
+
+        return when (val validation = TurkishTextNormalizer.validateSender(sender)) {
+            is SenderValidationResult.Invalid -> {
+                NetworkResult.Error(code = 400, message = validation.errorMessage)
+            }
+            is SenderValidationResult.Valid -> {
+                val sanitized = validation.sanitizedSender
+                val remoteResult = ApiClient.safeApiCall {
+                    apiService.submitSignal(
+                        SenderSignalRequestDto(
+                            sender = sanitized,
+                            source = source,
+                            score = score
+                        )
+                    )
+                }
+
+                if (remoteResult is NetworkResult.Success && database != null) {
+                    val data = remoteResult.data
+                    database.senderCacheDao().insertSender(
+                        SenderCacheEntity(
+                            sender = sanitized,
+                            riskScore = data.riskScore,
+                            riskLevel = data.riskLevel,
+                            isFinalized = data.isFinalized,
+                            cachedAt = System.currentTimeMillis()
+                        )
+                    )
                 }
 
                 remoteResult

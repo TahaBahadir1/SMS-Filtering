@@ -116,14 +116,20 @@ class MessagesViewModel(
 
                 if (alsoConfigureSender && msg != null) {
                     val isSafe = targetDecision.equals("SAFE", ignoreCase = true) || targetDecision.contains("izin", ignoreCase = true)
+                    val score = if (isSafe) 0.05 else 0.95
                     val cacheEntity = SenderCacheEntity(
                         sender = msg.sender,
-                        riskScore = if (isSafe) 0.05 else 0.95,
+                        riskScore = score,
                         riskLevel = if (isSafe) "risksiz" else "riskli",
                         isFinalized = true,
                         cachedAt = System.currentTimeMillis()
                     )
                     database.senderCacheDao().insertSender(cacheEntity)
+                    // Kapalı döngü anonim sinyal (SMS metni gönderilmez, çevrimdışında sessizce yutulur)
+                    try {
+                        senderRepository.submitSignal(sender = msg.sender, source = "manuel", score = score)
+                    } catch (_: Exception) {
+                    }
                 }
             }
             loadAll()
@@ -138,14 +144,20 @@ class MessagesViewModel(
     fun addOrUpdateSenderRule(sender: String, isBlocked: Boolean): Job {
         return scope.launch {
             withContext(ioDispatcher) {
+                val normalized = sender.trim().uppercase(Locale("tr", "TR"))
+                val score = if (isBlocked) 0.95 else 0.05
                 val entity = SenderCacheEntity(
-                    sender = sender.trim().uppercase(Locale("tr", "TR")),
-                    riskScore = if (isBlocked) 0.95 else 0.05,
+                    sender = normalized,
+                    riskScore = score,
                     riskLevel = if (isBlocked) "riskli" else "risksiz",
                     isFinalized = true,
                     cachedAt = System.currentTimeMillis()
                 )
                 database.senderCacheDao().insertSender(entity)
+                try {
+                    senderRepository.submitSignal(sender = normalized, source = "manuel", score = score)
+                } catch (_: Exception) {
+                }
             }
             loadSenders()
         }
