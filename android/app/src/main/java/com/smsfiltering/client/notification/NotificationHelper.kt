@@ -23,6 +23,10 @@ object NotificationHelper {
 
     private const val TAG = "NotificationHelper"
 
+    // IP 4: Deep-link sabitler
+    const val ACTION_OPEN_MESSAGE_DETAIL = "com.smsfiltering.ACTION_OPEN_MESSAGE_DETAIL"
+    const val EXTRA_MESSAGE_ID = "extra_message_id"
+
     // Bildirim Kanalları
     const val CHANNEL_ID_ALERTS = "sms_filter_security_alerts"
     const val CHANNEL_NAME_ALERTS = "SMS Güvenlik Uyarıları"
@@ -164,19 +168,24 @@ object NotificationHelper {
             builder.setCategory(NotificationCompat.CATEGORY_MESSAGE)
         }
 
-        // PendingIntent: Bildirime tıklandığında uygulamanın açılmasını sağlar
-        val intent = targetIntent ?: context.packageManager.getLaunchIntentForPackage(context.packageName)
-        if (intent != null) {
-            intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            val pendingIntent = PendingIntent.getActivity(
-                context,
-                notificationIdGenerator.get(),
-                intent,
-                flags
-            )
-            builder.setContentIntent(pendingIntent)
+        // IP 4: Bildirime tıklandığında doğrudan ilgili mesaj detayına deep-link yönlendirmesi
+        val deepLinkIntent = targetIntent ?: Intent(context, Class.forName("com.smsfiltering.client.MainActivity")).apply {
+            action = ACTION_OPEN_MESSAGE_DETAIL
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
+        // messageId henüz bilinmiyorsa -1; SmsReceiver tarafında insertMessage sonrası set edilir
+        if (!deepLinkIntent.hasExtra(EXTRA_MESSAGE_ID)) {
+            deepLinkIntent.putExtra(EXTRA_MESSAGE_ID, -1L)
+        }
+
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationIdGenerator.get(),
+            deepLinkIntent,
+            flags
+        )
+        builder.setContentIntent(pendingIntent)
 
         return builder
     }

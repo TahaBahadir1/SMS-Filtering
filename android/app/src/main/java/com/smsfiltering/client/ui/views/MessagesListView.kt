@@ -3,10 +3,13 @@ package com.smsfiltering.client.ui.views
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
@@ -29,6 +32,10 @@ class MessagesListView(
     private val tabsContainer: LinearLayout
     private val messagesContainer: LinearLayout
     private val emptyView: LinearLayout
+    private val searchInput: EditText
+    private val searchClearBtn: TextView
+    private val searchContainer: LinearLayout
+    private val dashboardView: SecurityDashboardView
     private val timeFormat = SimpleDateFormat("HH:mm", Locale("tr", "TR"))
     private val dateFormat = SimpleDateFormat("dd.MM", Locale("tr", "TR"))
 
@@ -65,6 +72,65 @@ class MessagesListView(
         }
         topBar.addView(demoBtn)
         addView(topBar)
+
+        // IP 4 — Güvenlik Özeti Panosu
+        dashboardView = SecurityDashboardView(context)
+        addView(dashboardView)
+
+        // IP 4 — Arama Çubuğu
+        searchContainer = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), dp(4), dp(16), dp(8))
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+        }
+
+        val searchIcon = TextView(context).apply {
+            text = "🔍"
+            textSize = 16f
+            val lp = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                rightMargin = dp(8)
+            }
+            layoutParams = lp
+        }
+        searchContainer.addView(searchIcon)
+
+        searchInput = EditText(context).apply {
+            hint = "Gönderen veya içerik ara..."
+            setHintTextColor(AppTheme.COLOR_TEXT_MUTED)
+            setTextColor(AppTheme.COLOR_TEXT_PRIMARY)
+            textSize = 14f
+            background = AppTheme.createCardDrawable(
+                AppTheme.COLOR_SURFACE_CARD, dp(14).toFloat(), AppTheme.COLOR_BORDER, 1
+            )
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+            layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
+            isSingleLine = true
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: Editable?) {
+                    val q = s?.toString()?.trim() ?: ""
+                    viewModel.setSearchQuery(q)
+                    searchClearBtn.visibility = if (q.isNotEmpty()) View.VISIBLE else View.GONE
+                }
+            })
+        }
+        searchContainer.addView(searchInput)
+
+        searchClearBtn = TextView(context).apply {
+            text = "✕"
+            textSize = 18f
+            setTextColor(AppTheme.COLOR_TEXT_MUTED)
+            setPadding(dp(10), dp(6), dp(4), dp(6))
+            visibility = View.GONE
+            setOnClickListener {
+                searchInput.setText("")
+                viewModel.clearSearch()
+            }
+        }
+        searchContainer.addView(searchClearBtn)
+        addView(searchContainer)
 
         // 2. Sekmeler (Tabs): Gelen | Karantina 3 | Engellenen
         tabsContainer = LinearLayout(context).apply {
@@ -131,6 +197,8 @@ class MessagesListView(
     }
 
     fun render(state: UiState) {
+        // IP 4: Güvenlik Özeti Panosu güncelle
+        dashboardView.render(state)
         renderTabs(state)
         renderMessages(state)
     }

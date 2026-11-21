@@ -39,6 +39,18 @@ interface FilteredMessageDao {
     @Query("SELECT COUNT(*) FROM filtered_messages WHERE UPPER(decision) IN (:decisions)")
     suspend fun getCountByDecisions(decisions: List<String>): Int
 
+    @Query("""
+        SELECT * FROM filtered_messages 
+        WHERE (UPPER(sender) LIKE '%' || UPPER(:query) || '%'
+               OR UPPER(body) LIKE '%' || UPPER(:query) || '%')
+          AND UPPER(decision) IN (:decisions)
+        ORDER BY timestamp DESC
+    """)
+    suspend fun searchMessages(query: String, decisions: List<String>): List<FilteredMessageEntity>
+
+    @Query("SELECT COUNT(*) FROM filtered_messages")
+    suspend fun getTotalCount(): Int
+
     @Query("DELETE FROM filtered_messages")
     suspend fun clearAll()
 }

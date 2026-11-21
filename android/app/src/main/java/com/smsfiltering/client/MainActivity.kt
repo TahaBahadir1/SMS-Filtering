@@ -1,6 +1,7 @@
 package com.smsfiltering.client
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -113,6 +114,35 @@ class MainActivity : Activity() {
         setContentView(rootLayout)
 
         // 4. UI Durum Akışını (StateFlow) Dinle
+        observeState()
+
+        // IP 4: Bildirimden veya deep-link'ten gelen intent'i işle
+        handleDeepLinkIntent(intent)
+    }
+
+    // IP 4: Uygulama zaten açıkken gelen yeni intent'leri yakala (singleTop)
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        intent?.let { handleDeepLinkIntent(it) }
+    }
+
+    /**
+     * IP 4: Güvenlik bildiriminden deep-link yönlendirmesi.
+     * Bildirime tıklandığında ACTION_OPEN_MESSAGE_DETAIL aksiyonu ve
+     * EXTRA_MESSAGE_ID ile ilgili mesaj detay ekranına gidilir.
+     */
+    private fun handleDeepLinkIntent(intent: Intent) {
+        if (intent.action == NotificationHelper.ACTION_OPEN_MESSAGE_DETAIL) {
+            val messageId = intent.getLongExtra(NotificationHelper.EXTRA_MESSAGE_ID, -1L)
+            if (messageId > 0) {
+                viewModel.openMessageById(messageId)
+            }
+            // Intent'i temizle (aynı intent tekrar işlenmesin)
+            intent.action = null
+        }
+    }
+
+    private fun observeState() {
         scope.launch {
             viewModel.uiState.collect { state ->
                 renderState(state)
@@ -149,6 +179,14 @@ class MainActivity : Activity() {
 
         state.statusMessage?.let { msg ->
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun onBackPressed() {
+        if (viewModel.uiState.value.currentNav != NavigationScreen.MESSAGES) {
+            viewModel.navigateTo(NavigationScreen.MESSAGES)
+        } else {
+            super.onBackPressed()
         }
     }
 

@@ -26,10 +26,16 @@
         <!-- Ana Ekran ve Uygulama Launcher Aktivitesi -->
         <activity
             android:name="com.smsfiltering.client.MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- IP 4: Güvenlik bildiriminden mesaj detayına deep-link -->
+            <intent-filter>
+                <action android:name="com.smsfiltering.ACTION_OPEN_MESSAGE_DETAIL" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 

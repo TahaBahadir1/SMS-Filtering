@@ -43,13 +43,17 @@ data class UiState(
     val inboxCount: Int = 0,
     val quarantineCount: Int = 0,
     val blockedCount: Int = 0,
+    val totalScannedCount: Int = 0,
     val selectedMessage: FilteredMessageEntity? = null,
     val isBodyRevealed: Boolean = false,
     val senders: List<SenderCacheEntity> = emptyList(),
     val keywordVersion: Long = 2L,
     val lastSyncFormatted: String = "10 dk önce",
     val isLoading: Boolean = false,
-    val statusMessage: String? = null
+    val statusMessage: String? = null,
+    val searchQuery: String = "",
+    val isSearchActive: Boolean = false,
+    val pendingDeepLinkMessageId: Long? = null
 )
 
 class MessagesViewModel(
@@ -101,6 +105,35 @@ class MessagesViewModel(
             selectedMessage = message,
             isBodyRevealed = false
         )
+    }
+
+    // ── IP 4: Arama Özelliği ──────────────────────────────────────────
+
+    fun setSearchQuery(query: String): Job {
+        _uiState.value = _uiState.value.copy(searchQuery = query, isSearchActive = query.isNotBlank())
+        return scope.launch { loadMessages() }
+    }
+
+    fun clearSearch(): Job {
+        _uiState.value = _uiState.value.copy(searchQuery = "", isSearchActive = false)
+        return scope.launch { loadMessages() }
+    }
+
+    // ── IP 4: Deep-link ile mesaj detay ekranına yönlendirme ──────────
+
+    fun openMessageById(messageId: Long): Job {
+        return scope.launch {
+            val message = withContext(ioDispatcher) {
+                database.filteredMessageDao().getMessageById(messageId)
+            }
+            if (message != null) {
+                openMessageDetail(message)
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    statusMessage = "Mesaj bulunamadı (ID: $messageId)"
+                )
+            }
+        }
     }
 
     fun toggleBodyReveal() {
@@ -277,7 +310,9 @@ class MessagesViewModel(
     }
 
     private suspend fun loadMessages() = withContext(ioDispatcher) {
-        val currentTab = _uiState.value.currentTab
+        val state = _uiState.value
+        val currentTab = state.currentTab
+        val query = state.searchQuery
 
         val inboxDecisions = listOf("SAFE", "IZIN VER", "GELEN", "izin ver")
         val quarantineDecisions = listOf("SUSPICIOUS", "KARANTİNA", "KARANTINA", "karantina")
@@ -289,16 +324,24 @@ class MessagesViewModel(
             AppTab.BLOCKED -> blockedDecisions
         }
 
-        val messages = database.filteredMessageDao().getMessagesByDecisions(targetDecisions)
+        // IP 4: Arama aktifse filtreleme yap, değilse normal yükle
+        val messages = if (query.isNotBlank()) {
+            database.filteredMessageDao().searchMessages(query, targetDecisions)
+        } else {
+            database.filteredMessageDao().getMessagesByDecisions(targetDecisions)
+        }
+
         val inCount = database.filteredMessageDao().getCountByDecisions(inboxDecisions)
         val qCount = database.filteredMessageDao().getCountByDecisions(quarantineDecisions)
         val bCount = database.filteredMessageDao().getCountByDecisions(blockedDecisions)
+        val totalCount = database.filteredMessageDao().getTotalCount()
 
         _uiState.value = _uiState.value.copy(
             messages = messages,
             inboxCount = inCount,
             quarantineCount = qCount,
-            blockedCount = bCount
+            blockedCount = bCount,
+            totalScannedCount = totalCount
         )
     }
 

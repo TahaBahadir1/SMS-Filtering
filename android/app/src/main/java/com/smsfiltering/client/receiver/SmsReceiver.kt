@@ -19,7 +19,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-
 /**
  * Android işletim sisteminde gelen SMS'leri gerçek zamanlı yakalayan BroadcastReceiver bileşeni.
  *
@@ -103,7 +102,16 @@ class SmsReceiver : BroadcastReceiver() {
                     Log.i(TAG, "SMS filtreleme kararı: Gönderen=$sender, Karar=${result.decision}, Skor=${result.riskScore}")
 
                     // 5. Karar hattından geçen mesaj için kullanıcıya bildirim göster
-                    NotificationHelper.showDecisionNotification(context, result)
+                    // IP 4: Deep-link için mesajın veritabanı ID'sini bildirime ekle
+                    val lastInsertedMessage = database.filteredMessageDao().getAllMessages().firstOrNull {
+                        it.sender == result.sender && it.body == result.body
+                    }
+                    val deepLinkIntent = Intent(context, Class.forName("com.smsfiltering.client.MainActivity")).apply {
+                        action = NotificationHelper.ACTION_OPEN_MESSAGE_DETAIL
+                        putExtra(NotificationHelper.EXTRA_MESSAGE_ID, lastInsertedMessage?.id ?: -1L)
+                        addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    }
+                    NotificationHelper.showDecisionNotification(context, result, targetIntent = deepLinkIntent)
 
                     // Test kancası
                     onSmsProcessed?.invoke(result)
