@@ -104,3 +104,19 @@ Scikit-learn `TfidfVectorizer(norm='l2', ngram_range=(1,2))` ve `LogisticRegress
 
 - Eğer $P(\text{spam}) \ge 0.50$ ise sistem risk puanına **$+ (0.4 \times P)$** eklenir.
 - Eğer $P(\text{spam}) < 0.50$ ise modele bağlı ekleme yapılmaz ($0.0$).
+
+---
+
+## 5. Filtre Atlatma (Adversarial / Obfuscation) Ön İşleme Güçlendirmesi (Hafta 7 - İP 3)
+
+Saldırganların kelime tabanlı modelleri ve kural motorunu atlatmak için kullandığı gizleme tekniklerine karşı `clean_text` (Python) ve `SmsCleaner.cleanText` (Android Kotlin) motorları birebir uyumlu şekilde güçlendirilmiştir:
+
+1. **Görünmez Unicode Karakterlerinin Temizlenmesi:**
+   - Zero-Width Space (`\u200B`), Zero-Width Non-Joiner (`\u200C`), Zero-Width Joiner (`\u200D`), LTR/RTL yön işaretleri (`\u200E`, `\u200F`, `\u202A-\u202E`), Word Joiner (`\u2060-\u2064`), Soft Hyphen (`\u00AD`), Combining Grapheme Joiner (`\u034F`) ve BOM (`\uFEFF`) karakterleri silinir.
+2. **Noktalama / Sembol Aralama Hilesinin Birleştirilmesi:**
+   - URL ve e-posta dışındaki kelimelerde harfler arasına yerleştirilen `.`, `-`, `_`, `*`, `+` ayraçları (`b.o.n.u.s` -> `bonus`, `b-a-h-i-s` -> `bahis`, `k_a_z_a_n` -> `kazan`, `s*l*o*t` -> `slot`) birleştirilir.
+3. **Türkçe Ünlü Uyumuna Duyarlı Leetspeak Çözümleme:**
+   - `@ -> a`, `$ -> s`, `0 -> o`, `3 -> e`, `4 -> a`, `5 -> s`, `7 -> t` dönüşümleri ile birlikte `1` karakteri kelimenin Türkçe ünlü uyumuna ve kök yapısına göre `i` veya `ı` (`b@h1s` -> `bahis`, `f1rs@t` -> `fırsat`, `k@z@nd1n1z` -> `kazandınız`, `ç3vr1ms1z` -> `çevrimsiz`) olarak çözümlenir.
+   - Meşru sayılar (`50.000`, `123456`), saatler (`14:00'te`), yüzdeler (`%80'ini`), ölçü birimleri (`2gb`, `3d`) ve web bağlantıları (`http://...`, `https://...`) korunur.
+4. **Deneysel Dayanıklılık Sonucu (`ai/adversarial_test_seti.csv`):**
+   - 4 kategoride (Leetspeak, Görünmez Unicode, Noktalama/Boşluk/Uzatma, Hibrit Çok Katmanlı) hazırlanan **40 zorlayıcı saldırı mesajında** eski `SmsCleaner` yakalama oranı ($P \ge 0.50$) **13/40 (%32,5)** iken, güçlendirilmiş `SmsCleaner` ile yakalama oranı **40/40 (%100,0)** seviyesine çıkarılmıştır.

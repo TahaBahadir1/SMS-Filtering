@@ -78,8 +78,8 @@ object TurkishTextNormalizer {
      */
     fun normalize(text: String?): String {
         if (text.isNullOrBlank()) return ""
-        val lowercased = toTurkishLowerCase(text)
-        val ascii = toAscii(lowercased)
+        val cleaned = SmsCleaner.cleanText(text)
+        val ascii = toAscii(cleaned)
         return ascii.replace("\\s+".toRegex(), " ").trim()
     }
 
