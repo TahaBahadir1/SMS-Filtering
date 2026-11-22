@@ -103,11 +103,12 @@ class SmsReceiver : BroadcastReceiver() {
 
                     // 5. Karar hattından geçen mesaj için kullanıcıya bildirim göster
                     // IP 4: Deep-link için mesajın veritabanı ID'sini bildirime ekle
-                    val lastInsertedMessage = database.filteredMessageDao().getAllMessages().firstOrNull {
-                        it.sender == result.sender && it.body == result.body
+                    val db = AppDatabase.getInstance(context.applicationContext)
+                    val lastInsertedMessage = db.filteredMessageDao().getAllMessages().firstOrNull { msg ->
+                        msg.sender == result.sender && msg.body == result.body
                     }
                     val deepLinkIntent = Intent(context, Class.forName("com.smsfiltering.client.MainActivity")).apply {
-                        action = NotificationHelper.ACTION_OPEN_MESSAGE_DETAIL
+                        this.action = NotificationHelper.ACTION_OPEN_MESSAGE_DETAIL
                         putExtra(NotificationHelper.EXTRA_MESSAGE_ID, lastInsertedMessage?.id ?: -1L)
                         addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                     }
