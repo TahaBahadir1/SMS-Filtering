@@ -222,7 +222,8 @@ class SmsReceiverTest {
 
         val result = capturedResult!!
         assertEquals(SmsFilterDecision.SAFE, result.decision)
-        assertEquals(0.0, result.riskScore, 0.001)
+        // docs/karar-hatti.md: Kayıtsız gönderen varsayılan skoru 0.30 (< 0.50 → SAFE)
+        assertEquals(0.30, result.riskScore, 0.01)
 
         val savedMessages = database.filteredMessageDao().getAllMessages()
         assertEquals(1, savedMessages.size)

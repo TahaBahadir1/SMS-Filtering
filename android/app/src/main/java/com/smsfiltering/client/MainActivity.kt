@@ -182,6 +182,15 @@ class MainActivity : Activity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        scope.launch {
+            viewModel.loadAll()
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    @Suppress("DEPRECATION")
     override fun onBackPressed() {
         if (viewModel.uiState.value.currentNav != NavigationScreen.MESSAGES) {
             viewModel.navigateTo(NavigationScreen.MESSAGES)

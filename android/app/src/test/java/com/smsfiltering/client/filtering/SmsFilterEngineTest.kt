@@ -200,7 +200,7 @@ class SmsFilterEngineTest {
 
     @Test
     fun testIban_WithAcilOdeme_NoLink_FlagsAsSuspicious() {
-        // Kural 6a: IBAN + Acil Ödeme, link yok → SUSPICIOUS (>= 0.60)
+        // docs/karar-hatti.md: Bilinmeyen gönderen (0.30) + k=2 (IBAN, ACIL_ODEME) = 0.70 → SUSPICIOUS
         val result = engine.evaluate(
             sender = "+905550009999",
             body = "IBAN bilgilerinizi güncellemek için son ödeme tarihi bugündür. Hesap numarası: TR00 0000",
@@ -211,13 +211,13 @@ class SmsFilterEngineTest {
         assertEquals(SmsFilterDecision.SUSPICIOUS, result.decision)
         assertTrue(result.matchedCategories.containsKey("IBAN"))
         assertTrue(result.matchedCategories.containsKey("ACIL_ODEME"))
-        assertTrue(result.riskScore >= 0.60)
-        assertTrue(result.reasons.any { it.contains("IBAN") && it.contains("acil ödeme") })
+        assertEquals(0.70, result.riskScore, 0.01)
+        assertTrue(result.reasons.any { it.contains("risk işareti") })
     }
 
     @Test
     fun testIban_NoLink_UnknownSender_FlagsAsSuspicious() {
-        // Kural 6b: IBAN tek başına, bilinmeyen gönderici → SUSPICIOUS (>= 0.45)
+        // docs/karar-hatti.md: Bilinmeyen gönderen (0.30) + k=1 (IBAN) = 0.50 → SUSPICIOUS
         val result = engine.evaluate(
             sender = "+905550001234",
             body = "Lütfen havale işlemi için IBAN numaranızı gönderin.",
@@ -227,13 +227,13 @@ class SmsFilterEngineTest {
 
         assertEquals(SmsFilterDecision.SUSPICIOUS, result.decision)
         assertTrue(result.matchedCategories.containsKey("IBAN"))
-        assertTrue(result.riskScore >= 0.45)
-        assertTrue(result.reasons.any { it.contains("IBAN") })
+        assertEquals(0.50, result.riskScore, 0.01)
+        assertTrue(result.reasons.any { it.contains("risk işareti") })
     }
 
     @Test
-    fun testOperatorTopic_NoLink_UnknownSender_FlagsAsSuspicious() {
-        // Kural 6c: OPERATOR konusu, doğrulanmamış gönderici, link yok → SUSPICIOUS (>= 0.40)
+    fun testOperatorTopic_NoLink_UnknownSender_TopicDoesNotAffectScore() {
+        // docs/karar-hatti.md: Konu kategorisi (OPERATOR) yalnızca kullanıcıya gösterilir, puana katılmaz (0.30 → SAFE)
         val result = engine.evaluate(
             sender = "+905550007788",
             body = "Fatura döneminizde data paketi aşımı gerçekleşti. Tarife değişikliği için iletişime geçin.",
@@ -241,10 +241,9 @@ class SmsFilterEngineTest {
             topicsWithKeywords = topics
         )
 
-        assertEquals(SmsFilterDecision.SUSPICIOUS, result.decision)
+        assertEquals(SmsFilterDecision.SAFE, result.decision)
         assertTrue(result.matchedTopics.containsKey("OPERATOR"))
-        assertTrue(result.riskScore >= 0.40)
-        assertTrue(result.reasons.any { it.contains("operatör") })
+        assertEquals(0.30, result.riskScore, 0.01)
     }
 
     @Test

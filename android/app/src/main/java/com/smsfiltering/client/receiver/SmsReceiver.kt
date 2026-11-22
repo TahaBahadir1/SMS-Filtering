@@ -11,6 +11,7 @@ import com.smsfiltering.client.data.local.AppDatabase
 import com.smsfiltering.client.data.remote.ApiClient
 import com.smsfiltering.client.data.repository.KeywordRepository
 import com.smsfiltering.client.data.repository.SenderRepository
+import com.smsfiltering.client.filtering.SmsClassifier
 import com.smsfiltering.client.filtering.SmsFilterEngine
 import com.smsfiltering.client.filtering.SmsFilterResult
 import com.smsfiltering.client.notification.NotificationHelper
@@ -89,7 +90,7 @@ class SmsReceiver : BroadcastReceiver() {
                 for ((sender, partList) in groupedMessages) {
                     val fullBody = partList.joinToString(separator = "") { it.displayMessageBody ?: it.messageBody ?: "" }
 
-                    Log.d(TAG, "Gelen SMS işleniyor: Gönderen=$sender, Uzunluk=${fullBody.length}")
+                    Log.d(TAG, "Gelen SMS işleniyor (uzunluk=${fullBody.length})")
 
                     // 4. Karar Hattından Geçir (Filtreleme & Risk Analizi)
                     val result = filterEngine.filterSms(
@@ -99,19 +100,27 @@ class SmsReceiver : BroadcastReceiver() {
                         saveToDatabase = true
                     )
 
-                    Log.i(TAG, "SMS filtreleme kararı: Gönderen=$sender, Karar=${result.decision}, Skor=${result.riskScore}")
+                    Log.i(TAG, "SMS filtreleme kararı: Karar=${result.decision}, Skor=${result.riskScore}, ModelP=${result.modelSpamProbability}")
 
                     // 5. Karar hattından geçen mesaj için kullanıcıya bildirim göster
                     // IP 4: Deep-link için mesajın veritabanı ID'sini bildirime ekle
-                    val db = AppDatabase.getInstance(context.applicationContext)
-                    val lastInsertedMessage = db.filteredMessageDao().getAllMessages().firstOrNull { msg ->
-                        msg.sender == result.sender && msg.body == result.body
-                    }
-                    val deepLinkIntent = Intent(context, Class.forName("com.smsfiltering.client.MainActivity")).apply {
-                        this.action = NotificationHelper.ACTION_OPEN_MESSAGE_DETAIL
-                        putExtra(NotificationHelper.EXTRA_MESSAGE_ID, lastInsertedMessage?.id ?: -1L)
-                        addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    }
+                    val messageId = runCatching {
+                        if (injectedFilterEngine == null) {
+                            val db = AppDatabase.getInstance(context.applicationContext)
+                            db.filteredMessageDao().getAllMessages().firstOrNull { msg ->
+                                msg.sender == result.sender && msg.body == result.body
+                            }?.id ?: -1L
+                        } else {
+                            -1L
+                        }
+                    }.getOrDefault(-1L)
+                    val deepLinkIntent = runCatching {
+                        Intent(context, Class.forName("com.smsfiltering.client.MainActivity")).apply {
+                            this.action = NotificationHelper.ACTION_OPEN_MESSAGE_DETAIL
+                            putExtra(NotificationHelper.EXTRA_MESSAGE_ID, messageId)
+                            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        }
+                    }.getOrNull()
                     NotificationHelper.showDecisionNotification(context, result, targetIntent = deepLinkIntent)
 
                     // Test kancası
@@ -147,10 +156,15 @@ class SmsReceiver : BroadcastReceiver() {
             database = database
         )
 
+        val classifier = runCatching {
+            SmsClassifier.getInstance(appContext)
+        }.getOrNull()
+
         return SmsFilterEngine(
             database = database,
             keywordRepository = keywordRepository,
-            senderRepository = senderRepository
+            senderRepository = senderRepository,
+            classifier = classifier
         )
     }
 }

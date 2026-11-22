@@ -28,13 +28,14 @@ object SmsCleaner {
     private val EMAIL_TOKEN_REGEX = Regex("""^(?i)[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$""")
 
     // 2. Noktalama/sembol aralama hilesi (örn: b.o.n.u.s, b-a-h-i-s, k_a_z_a_n, s*l*o*t)
+    // Not: Android ICU regex motoru (?U) bayrağını desteklemediği için Türkçe karakter sınıfı sınırları kullanılır.
     private val SYMBOL_OBFUSCATION_REGEX = Regex(
-        """(?U)(?<![a-zçğıöşü0-9])([a-zçğıöşü0-9])(?:[.\-_*+]([a-zçğıöşü0-9])){2,}(?![a-zçğıöşü0-9])"""
+        """(?<![a-zçğıöşü0-9])([a-zçğıöşü0-9])(?:[.\-_*+]([a-zçğıöşü0-9])){2,}(?![a-zçğıöşü0-9])"""
     )
     private val SYMBOL_CLEAN_REGEX = Regex("""[.\-_*+]""")
 
-    // 3. Harf veya rakam arasına konmuş hileli boşlukları yakalayan regex
-    private val SPACE_REGEX = Regex("""(?U)\b([a-zçğıöşü0-9]{1,2})\s+(?=[a-zçğıöşü0-9]{1,2}(?U)\b)""")
+    // 3. Harf veya rakam arasına konmuş hileli boşlukları yakalayan regex (Android ICU uyumlu \p{L}\p{N} sınırı)
+    private val SPACE_REGEX = Regex("""(?<![\p{L}\p{N}_])([a-zçğıöşü0-9]{1,2})\s+(?=[a-zçğıöşü0-9]{1,2}(?![\p{L}\p{N}_]))""")
 
     // 4. 3 veya daha fazla ardışık harf tekrarını teke indiren regex
     private val REPEAT_REGEX = Regex("""(.)\1{2,}""")
